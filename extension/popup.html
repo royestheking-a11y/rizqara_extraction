@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rizqara Extraction</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-logo">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor"/>
+            <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-name">Rizqara</span>
+          <span class="logo-sub">Extraction</span>
+        </div>
+      </div>
+      <div class="header-status" id="statusBadge">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Connecting...</span>
+      </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" id="tab-extract" data-tab="extract">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        Extract
+      </button>
+      <button class="tab-btn" id="tab-leads" data-tab="leads">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Leads
+      </button>
+      <button class="tab-btn" id="tab-settings" data-tab="settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34L5 5a10 10 0 0 0-1.66 12.07l.01.01L5 19a10 10 0 0 0 13.07 1.66l.01-.01 1.65-1.66A10 10 0 0 0 19.07 4.93z"/>
+        </svg>
+        Settings
+      </button>
+    </nav>
+
+    <!-- EXTRACT TAB -->
+    <div class="tab-content active" id="content-extract">
+
+      <!-- Mode Selector -->
+      <div class="mode-selector">
+        <button class="mode-btn active" id="mode-auto" data-mode="auto">
+          <span class="mode-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
+          <span>Auto</span>
+        </button>
+        <button class="mode-btn" id="mode-manual" data-mode="manual">
+          <span class="mode-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
+          <span>Manual</span>
+        </button>
+        <button class="mode-btn" id="mode-hybrid" data-mode="hybrid">
+          <span class="mode-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg></span>
+          <span>Hybrid</span>
+        </button>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters-section">
+        <div class="section-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          Smart Filters
+        </div>
+        <div class="filter-grid">
+          <label class="filter-chip" id="filter-website">
+            <input type="checkbox" id="chk-website" />
+            <span class="chip-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/><path d="M2 12h20"/></svg></span>
+            <span>Website</span>
+            <span class="chip-check">✓</span>
+          </label>
+          <label class="filter-chip" id="filter-phone">
+            <input type="checkbox" id="chk-phone" checked />
+            <span class="chip-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg></span>
+            <span>Phone</span>
+            <span class="chip-check">✓</span>
+          </label>
+          <label class="filter-chip" id="filter-email">
+            <input type="checkbox" id="chk-email" />
+            <span class="chip-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+            <span>Email</span>
+            <span class="chip-check">✓</span>
+          </label>
+          <label class="filter-chip" id="filter-social">
+            <input type="checkbox" id="chk-social" />
+            <span class="chip-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
+            <span>Social</span>
+            <span class="chip-check">✓</span>
+          </label>
+          <label class="filter-chip" id="filter-rating">
+            <input type="checkbox" id="chk-rating" />
+            <span class="chip-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+            <span>4+ Stars</span>
+            <span class="chip-check">✓</span>
+          </label>
+          <label class="filter-chip" id="filter-nowebsite">
+            <input type="checkbox" id="chk-nowebsite" />
+            <span class="chip-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="2" x2="22" y2="22"/></svg></span>
+            <span>No Website</span>
+            <span class="chip-check">✓</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Lead Scoring -->
+      <div class="scoring-section">
+        <div class="section-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>
+          </svg>
+          Lead Scoring
+        </div>
+        <div class="score-filter">
+          <button class="score-btn active" data-score="all">All</button>
+          <button class="score-btn hot" data-score="hot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px; vertical-align:-2px;"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg>Hot</button>
+          <button class="score-btn warm" data-score="warm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px; vertical-align:-2px;"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Warm</button>
+          <button class="score-btn cold" data-score="cold"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px; vertical-align:-2px;"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>Cold</button>
+        </div>
+      </div>
+
+      <!-- Limit Slider -->
+      <div class="limit-section">
+        <div class="section-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          Extraction Limit: <span id="limitDisplay" class="limit-value">100</span>
+        </div>
+        <input type="range" id="limitSlider" class="limit-slider" min="10" max="500" value="100" step="10" />
+        <div class="limit-labels">
+          <span>10</span>
+          <span>250</span>
+          <span>500</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-buttons">
+        <button class="btn-start" id="btnStart">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Start Extraction
+        </button>
+        <div class="btn-group-secondary">
+          <button class="btn-pause" id="btnPause" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+            </svg>
+            Pause
+          </button>
+          <button class="btn-stop" id="btnStop" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+            </svg>
+            Stop
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress Section -->
+      <div class="progress-section" id="progressSection" style="display:none">
+        <div class="progress-header">
+          <span class="progress-label">Extracting leads...</span>
+          <span class="progress-count" id="progressCount">0 / 0</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+          <div class="progress-pulse"></div>
+        </div>
+        <div class="progress-stats">
+          <div class="stat-pill">
+            <span class="stat-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f56432" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg></span>
+            <span class="stat-pill-num" id="hotCount">0</span>
+            <span class="stat-pill-label">Hot</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
+            <span class="stat-pill-num" id="warmCount">0</span>
+            <span class="stat-pill-label">Warm</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4296f5" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg></span>
+            <span class="stat-pill-num" id="coldCount">0</span>
+            <span class="stat-pill-label">Cold</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/><path d="M2 12h20"/></svg></span>
+            <span class="stat-pill-num" id="websiteCount">0</span>
+            <span class="stat-pill-label">Sites</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Preview -->
+      <div class="results-section" id="resultsSection" style="display:none">
+        <div class="results-header">
+          <div class="section-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Preview
+          </div>
+          <span class="results-badge" id="totalBadge">0 leads</span>
+        </div>
+        <div class="preview-table-wrap">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th>Score</th>
+                <th>Phone</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Export Buttons -->
+        <div class="export-section">
+          <button class="btn-export primary" id="btnExcel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            Export Excel
+          </button>
+          <button class="btn-export secondary" id="btnCSV">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            CSV
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- LEADS TAB -->
+    <div class="tab-content" id="content-leads">
+      <div class="leads-toolbar">
+        <input type="text" class="search-input" id="leadsSearch" placeholder="Search saved leads..." />
+        <button class="btn-clear-leads" id="btnClearLeads">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="crm-filter">
+        <button class="crm-btn active" data-crm="all">All</button>
+        <button class="crm-btn" data-crm="new">New</button>
+        <button class="crm-btn" data-crm="contacted">Contacted</button>
+        <button class="crm-btn" data-crm="interested">Interested</button>
+        <button class="crm-btn" data-crm="client">Client <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:2px; vertical-align:-1px;"><path d="M8 21h8M12 17v4M7 4h10l1 7c0 2-2 3.5-4 4l-2 2-2-2c-2-.5-4-2-4-4L7 4z"/></svg></button>
+      </div>
+      <div class="leads-list" id="leadsList">
+        <div class="empty-state">
+          <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+          <p>No leads yet. Start an extraction to<br>collect business data.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div class="tab-content" id="content-settings">
+      <div class="settings-group">
+        <div class="settings-group-title">Backend Configuration</div>
+        <div class="settings-item">
+          <label class="settings-label">API Server URL</label>
+          <input type="text" class="settings-input" id="apiUrl" placeholder="http://localhost:3000" />
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-title">Extraction Speed</div>
+        <div class="speed-options">
+          <label class="speed-option">
+            <input type="radio" name="speed" value="slow" id="speed-slow" />
+            <div class="speed-card">
+              <span class="speed-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+              <span class="speed-name">Safe</span>
+              <span class="speed-desc">3-5s delay</span>
+            </div>
+          </label>
+          <label class="speed-option">
+            <input type="radio" name="speed" value="medium" id="speed-medium" checked />
+            <div class="speed-card">
+              <span class="speed-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+              <span class="speed-name">Normal</span>
+              <span class="speed-desc">1-3s delay</span>
+            </div>
+          </label>
+          <label class="speed-option">
+            <input type="radio" name="speed" value="fast" id="speed-fast" />
+            <div class="speed-card">
+              <span class="speed-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
+              <span class="speed-name">Fast</span>
+              <span class="speed-desc">0.5-1s delay</span>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-title">Enrichment Options</div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">Email Finder</span>
+            <span class="toggle-desc">Crawl websites to find emails</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-email" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">Social Media Detector</span>
+            <span class="toggle-desc">Find Facebook, Instagram, LinkedIn</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-social" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">Website Intelligence</span>
+            <span class="toggle-desc">Detect tech stack & SEO issues</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-intelligence" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">Anti-Block Mode</span>
+            <span class="toggle-desc">Human-like delays & behavior</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-antiblock" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">Background Extraction</span>
+            <span class="toggle-desc">Run without keeping popup open</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-background" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-title">AI Insights</div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">AI Lead Analysis</span>
+            <span class="toggle-desc">Generate pitch suggestions per lead</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tog-ai" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-item" id="aiKeyWrap" style="display:none">
+          <label class="settings-label">OpenAI API Key</label>
+          <input type="password" class="settings-input" id="openaiKey" placeholder="sk-..." />
+        </div>
+      </div>
+      <button class="btn-save-settings" id="btnSaveSettings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Save Settings
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Lead Detail Modal -->
+  <div class="modal-overlay" id="leadModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalName">Business Name</h3>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <select class="crm-status-select" id="modalCrmStatus">
+          <option value="new">New Lead</option>
+          <option value="contacted">Contacted</option>
+          <option value="interested">Interested</option>
+          <option value="client">Client</option>
+        </select>
+        <textarea class="modal-notes" id="modalNotes" placeholder="Add notes..."></textarea>
+        <button class="btn-save-lead" id="btnSaveLead">Save Lead</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <script src="lib/xlsx.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+/* Rizqara Extraction — Google Maps Indicator */
+
+#rizqara-bar {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6b1a2e, #c0294f, #ff6b9d, #c0294f, #6b1a2e);
+  background-size: 300% 100%;
+  animation: rizqara-slide 2s linear infinite;
+  z-index: 999999;
+  box-shadow: 0 0 12px rgba(192, 41, 79, 0.8);
+}
+
+#rizqara-bar.active {
+  display: block;
+}
+
+@keyframes rizqara-slide {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
