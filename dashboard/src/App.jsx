@@ -10,6 +10,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminPayments from './pages/admin/AdminPayments';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import LoadingScreen from './components/LoadingScreen';
 import './App.css';
 
 function App() {
@@ -44,7 +45,7 @@ function App() {
     }
   };
 
-  if (loading) return <div className="loading-screen">Loading Rizqara Extraction...</div>;
+  if (loading) return <LoadingScreen />;
 
   return (
     <Router>
