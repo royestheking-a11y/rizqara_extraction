@@ -364,10 +364,25 @@ const AdminPayments = () => {
         .empty-content p { font-weight: 700; }
 
         .plan-glow {
-          font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 6px;
+          font-size: 10px;
+          font-weight: 900;
+          padding: 4px 10px;
+          border-radius: 6px;
+          letter-spacing: 0.5px;
         }
-        .plan-glow.business { background: rgba(139, 0, 0, 0.1); color: var(--primary); border: 1px solid var(--primary); }
-        .plan-glow.pro { background: #000; color: #fff; }
+
+        .plan-glow.pro {
+          background: rgba(128, 0, 0, 0.08);
+          color: var(--primary);
+          box-shadow: 0 0 12px rgba(128, 0, 0, 0.05);
+        }
+
+        .plan-glow.business {
+          background: rgba(139, 92, 246, 0.1);
+          color: #8b5cf6;
+          box-shadow: 0 0 12px rgba(139, 92, 246, 0.1);
+        }
+
         .plan-glow.free { background: #f1f3f5; color: #495057; }
 
         @media (max-width: 1024px) {

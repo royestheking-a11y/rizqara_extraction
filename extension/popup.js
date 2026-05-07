@@ -150,7 +150,15 @@ function showAuthOverlay(show) {
 function updateUserUI() {
   if (!user) return;
   $('userMini').style.display = 'flex';
-  $('userPlan').textContent = user.plan.toUpperCase();
+  
+  const planLabel = user.plan === 'free' ? 'FREE TRIAL' : user.plan.toUpperCase();
+  const usageText = user.plan === 'free' 
+    ? `${user.total_usage}/20 Lifetime`
+    : `${user.usage_today}/${user.daily_limit} Today`;
+    
+  $('userPlan').textContent = planLabel;
+  $('userUsage').textContent = usageText; // I need to make sure this ID exists in HTML
+
   if ($('btnGetPro')) {
     $('btnGetPro').style.display = user.plan === 'free' ? 'inline-block' : 'none';
   }
@@ -314,6 +322,17 @@ function setupButtons() {
 
 async function startExtraction() {
   if (!user) return showToast('Please login first');
+
+  // PRE-CHECK LIMITS
+  if (user.plan === 'free') {
+    if (user.total_usage >= 20) {
+      return showToast('Lifetime limit reached! Upgrade to Pro.', 'error');
+    }
+  } else {
+    if (user.usage_today >= user.daily_limit) {
+      return showToast('Daily limit reached! Come back tomorrow.', 'error');
+    }
+  }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const isGMaps = tab?.url?.includes('google.com/maps');

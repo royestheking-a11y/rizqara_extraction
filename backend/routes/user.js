@@ -12,10 +12,28 @@ router.get('/profile', auth, async (req, res) => {
 router.post('/usage', auth, async (req, res) => {
   try {
     const { count = 1 } = req.body;
-    req.user.usage_today += count;
-    req.user.total_usage += count;
-    await req.user.save();
-    res.send({ usage_today: req.user.usage_today, daily_limit: req.user.daily_limit });
+    const user = req.user;
+
+    // Check if incrementing would exceed limit
+    if (user.plan === 'free') {
+      if (user.total_usage + count > 20) {
+        return res.status(403).json({ error: 'Limit exceeded', message: 'Free trial limit (20) reached.' });
+      }
+    } else {
+      if (user.usage_today + count > user.daily_limit) {
+        return res.status(403).json({ error: 'Limit exceeded', message: `Daily limit (${user.daily_limit}) reached.` });
+      }
+    }
+
+    user.usage_today += count;
+    user.total_usage += count;
+    await user.save();
+    res.send({ 
+      usage_today: user.usage_today, 
+      total_usage: user.total_usage,
+      daily_limit: user.daily_limit,
+      plan: user.plan
+    });
   } catch (e) {
     res.status(500).send(e);
   }

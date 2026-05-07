@@ -102,8 +102,8 @@ const AdminUsers = () => {
                         onChange={(e) => setEditForm({...editForm, plan: e.target.value})}
                       >
                         <option value="free">Free</option>
-                        <option value="standard">Standard</option>
-                        <option value="premium">Premium</option>
+                        <option value="pro">Pro</option>
+                        <option value="business">Business</option>
                       </select>
                     ) : (
                       <span className={`plan-pill ${user.plan}`}>{user.plan.toUpperCase()}</span>
@@ -118,7 +118,7 @@ const AdminUsers = () => {
                         onChange={(e) => setEditForm({...editForm, daily_limit: parseInt(e.target.value)})}
                       />
                     ) : (
-                      <span className="limit-val">{user.daily_limit} / day</span>
+                      <span className="limit-val">{user.plan === 'free' ? '20 Total' : `${user.daily_limit} / day`}</span>
                     )}
                   </td>
                   <td>{user.total_usage}</td>
@@ -170,8 +170,8 @@ const AdminUsers = () => {
 
         .plan-pill { font-size: 10px; font-weight: 900; padding: 4px 8px; border-radius: 6px; }
         .plan-pill.free { background: #f3f4f6; color: #6b7280; }
-        .plan-pill.standard { background: rgba(128, 0, 0, 0.08); color: var(--primary); }
-        .plan-pill.premium { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+        .plan-pill.pro { background: rgba(128, 0, 0, 0.08); color: var(--primary); }
+        .plan-pill.business { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
 
         .actions-cell { display: flex; gap: 8px; }
         .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; color: var(--text-muted); }

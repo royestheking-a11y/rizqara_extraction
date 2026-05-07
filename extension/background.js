@@ -18,18 +18,26 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // ── Forward messages: content script → popup ──────────
-// BUG FIX: background.js cannot forward via chrome.runtime.sendMessage to popup
-// (popup is not a background target). Instead, use chrome.tabs to send to popup
-// or just let content script send directly. Background stores for persistence only.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'LEAD_FOUND') {
-    // Persist lead to queue for background mode
-    chrome.storage.local.get(['extractionQueue'], (res) => {
+    // 1. Persist lead locally
+    chrome.storage.local.get(['extractionQueue', 'token'], (res) => {
       const queue = res.extractionQueue || [];
       queue.push(msg.data);
-      // Cap queue at 1000 to avoid storage overflow
       if (queue.length > 1000) queue.splice(0, queue.length - 1000);
       chrome.storage.local.set({ extractionQueue: queue });
+
+      // 2. Report usage to backend immediately
+      if (res.token) {
+        fetch('https://rizqara-extraction-backend.onrender.com/api/user/usage', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${res.token}`
+          },
+          body: JSON.stringify({ count: 1 })
+        }).catch(err => console.error('[Rizqara] Usage report failed:', err));
+      }
     });
   }
 
