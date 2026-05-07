@@ -14,6 +14,8 @@ chrome.runtime.onInstalled.addListener(() => {
     if (!res.savedLeads) {
       chrome.storage.local.set({ savedLeads: [], extractionQueue: [] });
     }
+    // Clear queue on install/update to prevent stale data
+    chrome.storage.local.set({ extractionQueue: [] });
   });
 });
 
@@ -24,11 +26,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.storage.local.get(['extractionQueue', 'token'], (res) => {
       const queue = res.extractionQueue || [];
       queue.push(msg.data);
-      if (queue.length > 1000) queue.splice(0, queue.length - 1000);
       chrome.storage.local.set({ extractionQueue: queue });
 
       // 2. Report usage to backend immediately
       if (res.token) {
+        console.log('[Rizqara] Reporting 1 lead to backend...');
         fetch('https://rizqara-extraction-backend.onrender.com/api/user/usage', {
           method: 'POST',
           headers: { 
@@ -36,7 +38,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             'Authorization': `Bearer ${res.token}`
           },
           body: JSON.stringify({ count: 1 })
-        }).catch(err => console.error('[Rizqara] Usage report failed:', err));
+        })
+        .then(r => r.json())
+        .then(data => console.log('[Rizqara] Usage updated:', data))
+        .catch(err => console.error('[Rizqara] Usage report failed:', err));
       }
     });
   }

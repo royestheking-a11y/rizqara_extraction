@@ -102,6 +102,9 @@ async function handleLogin() {
       updateUserUI();
       showAuthOverlay(false);
       showToast('Welcome back!', 'success');
+      
+      // Refresh profile to get latest counts immediately
+      fetchUserProfile(data.token);
     } else {
       showToast(data.error || 'Login failed');
     }
@@ -316,7 +319,6 @@ function setupButtons() {
   $('btnStart').onclick = startExtraction;
   $('btnPause').onclick = pauseExtraction;
   $('btnStop').onclick = stopExtraction;
-  $('btnExcel').onclick = exportToExcel;
   $('btnCSV').onclick = exportToCSV;
 }
 
@@ -380,49 +382,33 @@ function getFilters() {
   return filters;
 }
 
-function exportToExcel() {
-  if (extractedLeads.length === 0) return showToast('No leads to export');
-  showToast('Preparing Excel file...', 'success');
-  
-  const data = extractedLeads.map(l => ({
-    'Business Name': l.name,
-    'Category': l.category,
-    'Phone': l.phone,
-    'Website': l.website,
-    'Email': l.email,
-    'Facebook': l.facebook,
-    'Instagram': l.instagram,
-    'LinkedIn': l.linkedin,
-    'Rating': l.rating,
-    'Reviews': l.reviews,
-    'Address': l.address,
-    'Lead Score': `${l.score || 0}%`
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Rizqara Leads');
-  XLSX.writeFile(workbook, `rizqara_leads_${new Date().getTime()}.xlsx`);
-}
-
 function exportToCSV() {
   if (extractedLeads.length === 0) return showToast('No leads to export');
   showToast('Preparing CSV file...', 'success');
 
-  const headers = ['Business Name', 'Category', 'Phone', 'Website', 'Email', 'Rating', 'Reviews', 'Address'];
+  const headers = [
+    'Business Name', 'Category', 'Phone', 'Website', 'Email', 
+    'Facebook', 'Instagram', 'LinkedIn', 'Rating', 'Reviews', 
+    'Address', 'Lead Score'
+  ];
+
   const rows = extractedLeads.map(l => [
-    `"${l.name}"`,
-    `"${l.category}"`,
-    `"${l.phone}"`,
-    `"${l.website}"`,
-    `"${l.email}"`,
-    l.rating,
-    l.reviews,
-    `"${l.address}"`
+    `"${(l.name || '').replace(/"/g, '""')}"`,
+    `"${(l.category || '').replace(/"/g, '""')}"`,
+    `"${(l.phone || '').replace(/"/g, '""')}"`,
+    `"${(l.website || '').replace(/"/g, '""')}"`,
+    `"${(l.email || '').replace(/"/g, '""')}"`,
+    `"${(l.facebook || '').replace(/"/g, '""')}"`,
+    `"${(l.instagram || '').replace(/"/g, '""')}"`,
+    `"${(l.linkedin || '').replace(/"/g, '""')}"`,
+    l.rating || 0,
+    l.reviews || 0,
+    `"${(l.address || '').replace(/"/g, '""')}"`,
+    `"${l.score || 0}%"`
   ]);
 
   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.setAttribute('hidden', '');
@@ -480,10 +466,23 @@ function listenToBackground() {
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'LEAD_FOUND') {
       extractedLeads.push(msg.data);
+      
+      // Real-time usage update for the UI
+      if (user) {
+        if (user.plan === 'free') user.total_usage++;
+        else user.usage_today++;
+        updateUserUI();
+      }
+      
       updateUI(msg.current, msg.total);
     } else if (msg.action === 'COMPLETE') {
       stopExtraction();
       showToast('🎉 Extraction Complete!', 'success');
+      
+      // Final profile sync to ensure backend and frontend are aligned
+      chrome.storage.local.get(['token'], (res) => {
+        if (res.token) fetchUserProfile(res.token);
+      });
     }
   });
 }

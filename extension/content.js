@@ -124,7 +124,6 @@
         notifyLead(lead, extracted.length, limit);
       }
     }
-
     chrome.runtime.sendMessage({ action: 'COMPLETE', count: extracted.length });
   }
 
@@ -142,7 +141,7 @@
           notifyLead(lead, extracted.length, limit);
           if (extracted.length >= limit) {
             aborted = true;
-            chrome.runtime.sendMessage({ action: 'EXTRACTION_COMPLETE', count: extracted.length });
+            chrome.runtime.sendMessage({ action: 'COMPLETE', count: extracted.length });
           }
         }
       }
@@ -175,7 +174,7 @@
 
       await sleep(2000); // Wait for user to scroll
     }
-    chrome.runtime.sendMessage({ action: 'EXTRACTION_COMPLETE', count: extracted.length });
+    chrome.runtime.sendMessage({ action: 'COMPLETE', count: extracted.length });
   }
 
   // ── HYBRID ALTERNATIVE PATH: ARIA & DATA-ATTRIBUTE BASED SCRAPING ── //
