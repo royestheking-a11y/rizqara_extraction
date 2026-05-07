@@ -52,21 +52,32 @@
 
   // ── Main Extraction Loop ────────────────────────────
   async function startExtraction(limit, mode, settings) {
-    const API = (settings?.apiUrl || 'http://localhost:3000').replace(/\/$/, '');
+    const API = (settings?.apiUrl || 'http://127.0.0.1:3005').replace(/\/$/, '');
     const extracted = [];
     const seen = new Set();
     let scrollAttempts = 0;
     const maxScrollAttempts = Math.ceil(limit / 3) + 30;
+    let currentIndex = 0;
     let lastNewLeadTime = Date.now();
-    const IDLE_TIMEOUT_MS = 60 * 1000; // 60s no new leads = auto-complete
+    const IDLE_TIMEOUT_MS = 60 * 1000;
     let noProgressRounds = 0;
 
-    let currentIndex = 0;
+    if (mode === 'manual') {
+      console.log('[Rizqara] Manual Mode Active - Click a listing to extract.');
+      await handleManualMode(limit, settings, API, extracted);
+      return;
+    }
 
+    if (mode === 'hybrid') {
+      console.log('[Rizqara] Hybrid Mode Active - Extracting visible listings.');
+      await handleHybridMode(limit, settings, API, extracted, seen);
+      return;
+    }
+
+    // Default: AUTO MODE
     while (extracted.length < limit && scrollAttempts < maxScrollAttempts && !aborted) {
       if (paused) { await sleep(500); continue; }
 
-      // Idle timeout: 60s with no new leads = end of useful results
       if (Date.now() - lastNewLeadTime > IDLE_TIMEOUT_MS) {
         console.log('[Rizqara] 60s idle — auto-completing.');
         break;
@@ -107,13 +118,6 @@
 
       const lead = await extractListing(el, settings, API);
       
-      // Click back to return to the list so React re-renders correctly
-      const backBtn = document.querySelector('button.hh2c6, button[aria-label*="Back"], button.VfPpkd-icon-LgbsSe');
-      if (backBtn) {
-        backBtn.click();
-        await sleep(800); // Wait for list to fade back in
-      }
-
       if (lead && lead.name && !lead.isClosed) {
         extracted.push(lead);
         lastNewLeadTime = Date.now();
@@ -121,6 +125,56 @@
       }
     }
 
+    chrome.runtime.sendMessage({ action: 'COMPLETE', count: extracted.length });
+  }
+
+  async function handleManualMode(limit, settings, API, extracted) {
+    const listener = async (e) => {
+      if (aborted) {
+        document.removeEventListener('click', listener, true);
+        return;
+      }
+      const link = e.target.closest('a[href*="/maps/place/"]');
+      if (link) {
+        const lead = await extractListing(link, settings, API);
+        if (lead) {
+          extracted.push(lead);
+          notifyLead(lead, extracted.length, limit);
+          if (extracted.length >= limit) {
+            aborted = true;
+            chrome.runtime.sendMessage({ action: 'EXTRACTION_COMPLETE', count: extracted.length });
+          }
+        }
+      }
+    };
+    document.addEventListener('click', listener, true);
+    while (!aborted && extracted.length < limit) {
+      await sleep(1000);
+    }
+    document.removeEventListener('click', listener, true);
+  }
+
+  async function handleHybridMode(limit, settings, API, extracted, seen) {
+    while (extracted.length < limit && !aborted) {
+      if (paused) { await sleep(500); continue; }
+      
+      let listings = getVisibleListings();
+      for (const el of listings) {
+        if (aborted || extracted.length >= limit) break;
+        
+        let name = getListingName(el);
+        if (!name || seen.has(name)) continue;
+        seen.add(name);
+
+        const lead = await extractListing(el, settings, API);
+        if (lead) {
+          extracted.push(lead);
+          notifyLead(lead, extracted.length, limit);
+        }
+      }
+
+      await sleep(2000); // Wait for user to scroll
+    }
     chrome.runtime.sendMessage({ action: 'EXTRACTION_COMPLETE', count: extracted.length });
   }
 
@@ -175,13 +229,13 @@
       link.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
       link.click();
       
-      // 2. Wait explicitly for the Detail Panel to open by looking for the specific business data attributes
+      // 2. Wait explicitly for the Detail Panel to open
       let detailOpen = false;
-      for (let i = 0; i < 30; i++) {
-        await sleep(300);
+      for (let i = 0; i < 40; i++) { // Increased wait time
+        await sleep(250);
         
-        // Wait until Google Maps actually injects the Address, Phone, or Website button into the DOM
-        const isDataLoaded = document.querySelector('[data-item-id="address"], [data-item-id^="phone:tel:"], a[data-item-id="authority"], [aria-label*="Back to results"]');
+        // Robust check for detail panel
+        const isDataLoaded = document.querySelector('[data-item-id="address"], [data-item-id^="phone:tel:"], a[data-item-id="authority"], [aria-label*="Back to results"], .DUwDvf');
         
         if (isDataLoaded) {
           detailOpen = true;
@@ -342,7 +396,10 @@
     try {
       const res = await fetch(`${API}/enrich`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': settings.token ? `Bearer ${settings.token}` : ''
+        },
         body: JSON.stringify({ url: websiteUrl, settings }),
         signal: controller.signal
       });
@@ -359,6 +416,7 @@
     const panelSelectors = [
       '[role="feed"]',
       '.m6QErb[aria-label]',
+      '.m6QErb.DxyBCb.kA9KIf',
       '.DxyBCb',
       '[aria-label*="Results for"]',
     ];

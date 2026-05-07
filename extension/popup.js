@@ -1,5 +1,5 @@
 // ====================================================
-// RIZQARA EXTRACTION — Popup Controller
+// RIZQARA EXTRACTION — Popup Controller (Old Design)
 // ====================================================
 
 let extractedLeads = [];
@@ -7,596 +7,497 @@ let isExtracting = false;
 let isPaused = false;
 let currentMode = 'auto';
 let scoreFilter = 'all';
-let crmFilter = 'all';
-let savedLeads = [];
-let settings = {};
+let currentTab = 'extract';
+let user = null;
 
-// ── DOM Refs (safe — called after DOMContentLoaded) ──
+// ── DOM Utility ──────────────────────────────────────
 const $ = id => document.getElementById(id);
+const $$ = selector => document.querySelectorAll(selector);
 
 // ── Init ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadSettings();
-  loadSavedLeads();
-  checkPageStatus();
+  initAuth();
+  setupAuth();
   setupTabs();
   setupModes();
   setupFilters();
   setupScoreFilter();
   setupSlider();
   setupButtons();
-  setupCrmFilter();
-  setupModal();
-  setupLeadsSearch();
-  setupSettingsPage();
+  checkPageStatus();
   listenToBackground();
+  setupSettings();
+  
+  // Ensure we show the right tab on start
+  switchTab('extract');
 });
 
-// ── Page Status Check ──────────────────────────────────
-async function checkPageStatus() {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = tab?.url || '';
-    const isGMaps = url.includes('google.com/maps') || url.includes('maps.google.com');
-    if (isGMaps) {
-      $('statusDot').className = 'status-dot connected';
-      $('statusText').textContent = 'Google Maps Detected';
+// ── Authentication ─────────────────────────────────────
+function initAuth() {
+  chrome.storage.local.get(['token'], (res) => {
+    if (res.token) {
+      fetchUserProfile(res.token);
     } else {
-      $('statusDot').className = 'status-dot error';
-      $('statusText').textContent = 'Open Google Maps';
+      showAuthOverlay(true);
     }
-  } catch {
-    $('statusDot').className = 'status-dot error';
-    $('statusText').textContent = 'Extension Error';
+  });
+
+  $('toRegister').onclick = (e) => {
+    e.preventDefault();
+    $('loginForm').style.display = 'none';
+    $('registerForm').style.display = 'block';
+  };
+  $('toLogin').onclick = (e) => {
+    e.preventDefault();
+    $('loginForm').style.display = 'block';
+    $('registerForm').style.display = 'none';
+  };
+
+  $('toggleLoginPass').onclick = () => {
+    const input = $('loginPass');
+    input.type = input.type === 'password' ? 'text' : 'password';
+  };
+  $('toggleRegPass').onclick = () => {
+    const input = $('regPass');
+    input.type = input.type === 'password' ? 'text' : 'password';
+  };
+
+  $('btnLogin').onclick = handleLogin;
+  $('btnRegister').onclick = handleRegister;
+  $('btnLogout').onclick = handleLogout;
+}
+
+async function fetchUserProfile(token) {
+  try {
+    const res = await fetch('http://127.0.0.1:3005/api/user/profile', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      user = await res.json();
+      updateUserUI();
+      showAuthOverlay(false);
+    } else {
+      handleLogout();
+    }
+  } catch (err) {
+    console.error('Profile fetch error:', err);
   }
 }
 
-// ── Tabs ──────────────────────────────────────────────
+async function handleLogin() {
+  const email = $('loginEmail').value;
+  const password = $('loginPass').value;
+  if (!email || !password) return showToast('Enter email and password');
+
+  try {
+    const res = await fetch('http://127.0.0.1:3005/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      chrome.storage.local.set({ token: data.token });
+      user = data.user;
+      updateUserUI();
+      showAuthOverlay(false);
+      showToast('Welcome back!', 'success');
+    } else {
+      showToast(data.error || 'Login failed');
+    }
+  } catch (err) {
+    showToast('Connection error');
+  }
+}
+
+async function handleRegister() {
+  const name = $('regName').value;
+  const email = $('regEmail').value;
+  const password = $('regPass').value;
+  if (!name || !email || !password) return showToast('Fill all fields');
+
+  try {
+    const res = await fetch('http://127.0.0.1:3005/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      chrome.storage.local.set({ token: data.token });
+      user = data.user;
+      updateUserUI();
+      showAuthOverlay(false);
+      showToast('Account created!', 'success');
+    } else {
+      showToast(data.error || 'Registration failed');
+    }
+  } catch (err) {
+    showToast('Connection error');
+  }
+}
+
+function handleLogout() {
+  chrome.storage.local.remove(['token']);
+  user = null;
+  showAuthOverlay(true);
+}
+
+function showAuthOverlay(show) {
+  $('authOverlay').style.display = show ? 'flex' : 'none';
+}
+
+function updateUserUI() {
+  if (!user) return;
+  $('userMini').style.display = 'flex';
+  $('userPlan').textContent = user.plan.toUpperCase();
+  if ($('btnGetPro')) {
+    $('btnGetPro').style.display = user.plan === 'free' ? 'inline-block' : 'none';
+  }
+}
+
+function setupAuth() {
+  if ($('btnGetPro')) {
+    $('btnGetPro').onclick = async () => {
+      const url = $('dashboardUrl').value || 'http://127.0.0.1:5173';
+      chrome.tabs.create({ url: `${url.replace(/\/$/, '')}/subscriptions` });
+    };
+  }
+}
+
+// ── Tab Switching ─────────────────────────────────────
 function setupTabs() {
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      const tab = btn.dataset.tab;
-      $(`content-${tab}`).classList.add('active');
-      if (tab === 'leads') renderLeadsList();
-    });
+  $$('.tab-btn').forEach(btn => {
+    btn.onclick = () => switchTab(btn.dataset.tab);
   });
 }
 
-// ── Mode Selector ──────────────────────────────────────
+function switchTab(tabId) {
+  currentTab = tabId;
+  $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+  $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === tabId + 'Tab'));
+}
+
+// ── Extraction Logic ──────────────────────────────────
 function setupModes() {
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentMode = btn.dataset.mode;
-    });
+  $$('.mode-btn').forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.mode) {
+        $$('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMode = btn.dataset.mode;
+      }
+    };
   });
 }
 
-// ── Filter Chips ───────────────────────────────────────
 function setupFilters() {
-  document.querySelectorAll('.filter-chip input').forEach(chk => {
-    chk.addEventListener('change', () => {
-      if (extractedLeads.length) applyFiltersAndRender();
-    });
+  $$('.filter-chip').forEach(chip => {
+    chip.onclick = () => {
+      chip.classList.toggle('active');
+    };
   });
 }
 
-// ── Score Filter ───────────────────────────────────────
 function setupScoreFilter() {
-  document.querySelectorAll('.score-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      scoreFilter = btn.dataset.score;
-      if (extractedLeads.length) applyFiltersAndRender();
-    });
+  $$('.score-btn').forEach(btn => {
+    btn.onclick = () => {
+      // Handle both Extract tab and Leads tab score/status filters
+      if (btn.dataset.score) {
+        $$('#extractTab .score-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        scoreFilter = btn.dataset.score;
+      } else if (btn.dataset.leadFilter) {
+        $$('#leadsTab .score-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterLeads(btn.dataset.leadFilter);
+      }
+    };
   });
 }
 
-// ── Slider ─────────────────────────────────────────────
+function filterLeads(filterType) {
+  showToast(`Filtering: ${filterType.toUpperCase()}`, 'success');
+  let filtered = [...extractedLeads];
+  
+  if (filterType === 'new') {
+    filtered = extractedLeads.filter(l => !l.lastContacted); // Example logic
+  } else if (filterType === 'interested') {
+    filtered = extractedLeads.filter(l => (l.score || 0) >= 70);
+  } else if (filterType === 'client') {
+    filtered = extractedLeads.filter(l => l.isClient); // Example logic
+  }
+
+  renderLeadsList(filtered);
+}
+
+function renderLeadsList(leads) {
+  const container = $('leadsList');
+  if (!leads.length) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:40px 20px; color:var(--text-muted)">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:12px; opacity:0.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <p style="font-size:13px">No leads match this filter.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = leads.map(l => `
+    <div class="lead-item animate-fade">
+      <div class="lead-info">
+        <span class="lead-name">${l.name}</span>
+        <span class="lead-cat">${l.category || 'Business'}</span>
+      </div>
+      <div class="lead-score">
+        <span class="user-plan-tag">${l.score || 0}%</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function setupSettings() {
+  // Extraction Speed
+  $$('#settingsTab .mode-btn').forEach(btn => {
+    btn.onclick = () => {
+      $$('#settingsTab .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const speed = btn.dataset.speed;
+      chrome.storage.local.set({ extractionSpeed: speed });
+      showToast(`Speed set to: ${speed.toUpperCase()}`, 'success');
+    };
+  });
+
+  // Enrichment Toggles
+  $$('.toggle-switch').forEach(toggle => {
+    toggle.onclick = () => {
+      toggle.classList.toggle('active');
+      const type = toggle.dataset.enrich;
+      const isActive = toggle.classList.contains('active');
+      const settings = {};
+      settings[`enrich_${type}`] = isActive;
+      chrome.storage.local.set(settings);
+      showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} ${isActive ? 'Enabled' : 'Disabled'}`, 'success');
+    };
+  });
+
+  const settings = await chrome.storage.local.get(['apiUrl', 'dashboardUrl']);
+  if (settings.apiUrl) $('apiUrl').value = settings.apiUrl;
+  if (settings.dashboardUrl) $('dashboardUrl').value = settings.dashboardUrl;
+
+  $('apiUrl').onchange = () => {
+    chrome.storage.local.set({ apiUrl: $('apiUrl').value });
+    showToast('API URL Saved', 'success');
+  };
+
+  $('dashboardUrl').onchange = () => {
+    chrome.storage.local.set({ dashboardUrl: $('dashboardUrl').value });
+    showToast('Dashboard URL Saved', 'success');
+  };
+}
+
 function setupSlider() {
   const slider = $('limitSlider');
-  const display = $('limitDisplay');
-  const updateSlider = () => {
-    display.textContent = slider.value;
-    const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
-    slider.style.setProperty('--pct', pct + '%');
+  const label = $('limitLabel');
+  slider.oninput = () => {
+    label.textContent = slider.value;
   };
-  slider.addEventListener('input', updateSlider);
-  updateSlider(); // init on load
 }
 
-// ── Main Buttons ───────────────────────────────────────
 function setupButtons() {
-  $('btnStart').addEventListener('click', startExtraction);
-  $('btnPause').addEventListener('click', pauseExtraction);
-  $('btnStop').addEventListener('click', stopExtraction);
-  $('btnExcel').addEventListener('click', exportExcel);
-  $('btnCSV').addEventListener('click', exportCSV);
+  $('btnStart').onclick = startExtraction;
+  $('btnPause').onclick = pauseExtraction;
+  $('btnStop').onclick = stopExtraction;
+  $('btnExcel').onclick = exportToExcel;
+  $('btnCSV').onclick = exportToCSV;
 }
 
 async function startExtraction() {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = tab?.url || '';
-    if (!url.includes('google.com/maps') && !url.includes('maps.google.com')) {
-      showToast('⚠️ Please open Google Maps first', 'error');
-      return;
-    }
+  if (!user) return showToast('Please login first');
 
-    // Reset state
-    isExtracting = true;
-    isPaused = false;
-    extractedLeads = [];
-    $('btnStart').disabled = true;
-    $('btnPause').disabled = false;
-    $('btnStop').disabled = false;
-    $('progressSection').style.display = 'block';
-    $('resultsSection').style.display = 'none';
-    updateProgressStats();
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const isGMaps = tab?.url?.includes('google.com/maps');
+  if (!isGMaps) return showToast('Open Google Maps first');
 
-    const limit = parseInt($('limitSlider').value);
-    const filters = getActiveFilters();
-    const currentSettings = getSettings();
+  // UI State
+  isExtracting = true;
+  $('btnStart').disabled = true;
+  $('btnPause').disabled = false;
+  $('btnStop').disabled = false;
+  $('progressCard').style.display = 'block';
+  $('resultsPreview').style.display = 'none';
 
-    const payload = { action: 'START_EXTRACTION', mode: currentMode, limit, filters, settings: currentSettings };
-
-    // Try sending to existing content script first
-    chrome.tabs.sendMessage(tab.id, payload, (response) => {
-      if (chrome.runtime.lastError || !response) {
-        // Content script not injected yet — inject it, then send
-        chrome.scripting.executeScript(
-          { target: { tabId: tab.id }, files: ['content.js'] },
-          () => {
-            if (chrome.runtime.lastError) {
-              showToast('❌ Cannot inject script on this page', 'error');
-              resetExtractionUI();
-              return;
-            }
-            // Small delay for script to initialize
-            setTimeout(() => {
-              chrome.tabs.sendMessage(tab.id, payload);
-            }, 300);
-          }
-        );
+  // Send message to content script
+  chrome.tabs.sendMessage(tab.id, {
+    action: 'START_EXTRACTION',
+    mode: currentMode,
+    limit: parseInt($('limitSlider').value),
+    settings: {
+      filters: getFilters(),
+      speed: $$('#settingsTab .mode-btn.active')[0]?.dataset.speed || 'normal',
+      apiUrl: $('apiUrl').value,
+      token: (await chrome.storage.local.get(['token'])).token,
+      enrich: {
+        email: document.querySelector('.toggle-switch[data-enrich="email"]')?.classList.contains('active'),
+        social: document.querySelector('.toggle-switch[data-enrich="social"]')?.classList.contains('active'),
+        background: document.querySelector('.toggle-switch[data-enrich="background"]')?.classList.contains('active')
       }
-    });
-
-  } catch (err) {
-    showToast(`❌ ${err.message}`, 'error');
-    resetExtractionUI();
-  }
+    }
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      isExtracting = false;
+      $('btnStart').disabled = false;
+      $('progressCard').style.display = 'none';
+      showToast('Error: Please refresh Google Maps and try again');
+    }
+  });
 }
 
-function resetExtractionUI() {
-  isExtracting = false;
-  $('btnStart').disabled = false;
-  $('btnPause').disabled = true;
-  $('btnStop').disabled = true;
+function getFilters() {
+  const filters = {};
+  $$('.filter-chip').forEach(c => {
+    filters[c.dataset.filter] = c.classList.contains('active');
+  });
+  return filters;
+}
+
+function exportToExcel() {
+  if (extractedLeads.length === 0) return showToast('No leads to export');
+  showToast('Preparing Excel file...', 'success');
+  
+  const data = extractedLeads.map(l => ({
+    'Business Name': l.name,
+    'Category': l.category,
+    'Phone': l.phone,
+    'Website': l.website,
+    'Email': l.email,
+    'Facebook': l.facebook,
+    'Instagram': l.instagram,
+    'LinkedIn': l.linkedin,
+    'Rating': l.rating,
+    'Reviews': l.reviews,
+    'Address': l.address,
+    'Lead Score': `${l.score || 0}%`
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Rizqara Leads');
+  XLSX.writeFile(workbook, `rizqara_leads_${new Date().getTime()}.xlsx`);
+}
+
+function exportToCSV() {
+  if (extractedLeads.length === 0) return showToast('No leads to export');
+  showToast('Preparing CSV file...', 'success');
+
+  const headers = ['Business Name', 'Category', 'Phone', 'Website', 'Email', 'Rating', 'Reviews', 'Address'];
+  const rows = extractedLeads.map(l => [
+    `"${l.name}"`,
+    `"${l.category}"`,
+    `"${l.phone}"`,
+    `"${l.website}"`,
+    `"${l.email}"`,
+    l.rating,
+    l.reviews,
+    `"${l.address}"`
+  ]);
+
+  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.setAttribute('hidden', '');
+  a.setAttribute('href', url);
+  a.setAttribute('download', `rizqara_leads_${new Date().getTime()}.csv`);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function pauseExtraction() {
   isPaused = !isPaused;
+  $('btnPause').innerHTML = isPaused ? 
+    `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume` :
+    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause`;
+  
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-    if (!tab) return;
-    chrome.tabs.sendMessage(tab.id, {
-      action: isPaused ? 'PAUSE_EXTRACTION' : 'RESUME_EXTRACTION'
-    }).catch(() => {});
+    chrome.tabs.sendMessage(tab.id, { action: isPaused ? 'PAUSE' : 'RESUME' });
   });
-
-  const btn = $('btnPause');
-  if (isPaused) {
-    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume`;
-    showToast('⏸ Extraction paused', '');
-  } else {
-    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause`;
-    showToast('▶ Extraction resumed', '');
-  }
 }
 
 function stopExtraction() {
   isExtracting = false;
-  isPaused = false;
+  $('btnStart').disabled = false;
+  $('btnPause').disabled = true;
+  $('btnStop').disabled = true;
+  
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-    if (tab) chrome.tabs.sendMessage(tab.id, { action: 'STOP_EXTRACTION' }).catch(() => {});
+    chrome.tabs.sendMessage(tab.id, { action: 'STOP' });
   });
-  resetExtractionUI();
+
   if (extractedLeads.length) {
-    $('resultsSection').style.display = 'block';
-    applyFiltersAndRender();
+    $('resultsPreview').style.display = 'block';
+    renderPreview();
   }
-  showToast(`⛔ Stopped. ${extractedLeads.length} leads collected.`, 'success');
 }
 
-// ── Background Message Listener ────────────────────────
-// BUG FIX: content script sends directly to runtime (popup listens here)
+// ── UI Helpers ────────────────────────────────────────
+function checkPageStatus() {
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    const isGMaps = tab?.url?.includes('google.com/maps');
+    const dot = $('statusDot');
+    const txt = $('statusText');
+    if (isGMaps) {
+      dot.className = 'status-dot connected';
+      txt.textContent = 'Google Maps Detected';
+    } else {
+      dot.className = 'status-dot';
+      txt.textContent = 'Open Google Maps';
+    }
+  });
+}
+
 function listenToBackground() {
-  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'LEAD_FOUND') {
-      const lead = scoreLead(msg.data);
-      extractedLeads.push(lead);
-      updateProgressUI(msg.current, msg.total || $('limitSlider').value);
-      // Also persist to savedLeads in real-time
-      savedLeads.push(lead);
-      chrome.storage.local.set({ savedLeads });
-
-    } else if (msg.action === 'EXTRACTION_COMPLETE') {
-      isExtracting = false;
-      resetExtractionUI();
-      $('resultsSection').style.display = 'block';
-      applyFiltersAndRender();
-      showToast(`🎉 Done! ${extractedLeads.length} leads extracted.`, 'success');
-
-    } else if (msg.action === 'EXTRACTION_ERROR') {
-      showToast(`❌ ${msg.message}`, 'error');
-      resetExtractionUI();
+      extractedLeads.push(msg.data);
+      updateUI(msg.current, msg.total);
+    } else if (msg.action === 'COMPLETE') {
+      stopExtraction();
+      showToast('🎉 Extraction Complete!', 'success');
     }
-    sendResponse({ ok: true });
-    return true;
   });
 }
 
-// ── Lead Scoring ───────────────────────────────────────
-function scoreLead(raw) {
-  const score = computeScore(raw);
-  const tier = score >= 70 ? 'hot' : score >= 40 ? 'warm' : 'cold';
-  return {
-    ...raw,
-    score,
-    tier,
-    crmStatus: raw.crmStatus || 'new',
-    notes: raw.notes || '',
-    savedAt: Date.now()
-  };
+function updateUI(current, total) {
+  $('currentExtract').textContent = current;
+  $('targetExtract').textContent = total;
+  const pct = (current / total) * 100;
+  $('progressBar').style.width = pct + '%';
+  
+  // Update counts
+  $('countHot').textContent = extractedLeads.filter(l => (l.score||0) >= 70).length;
+  $('countWarm').textContent = extractedLeads.filter(l => (l.score||0) >= 40 && (l.score||0) < 70).length;
+  $('countCold').textContent = extractedLeads.filter(l => (l.score||0) < 40).length;
+  $('countSites').textContent = extractedLeads.filter(l => l.website).length;
 }
 
-function computeScore(lead) {
-  let s = 0;
-  if (lead.website) s += 25;
-  if (lead.email)   s += 25;
-  if (lead.phone)   s += 15;
-  if (lead.facebook || lead.instagram || lead.linkedin) s += 15;
-  const rating = parseFloat(lead.rating) || 0;
-  if (rating >= 4.5)      s += 20;
-  else if (rating >= 4.0) s += 12;
-  else if (rating >= 3.5) s += 6;
-  return Math.min(100, s);
-}
-
-// ── Progress UI ────────────────────────────────────────
-function updateProgressUI(current, total) {
-  const t = parseInt(total) || 0;
-  const pct = t ? Math.round((current / t) * 100) : 0;
-  $('progressBar').style.width = Math.min(100, pct) + '%';
-  $('progressCount').textContent = `${current} / ${t || '?'}`;
-  updateProgressStats();
-}
-
-function updateProgressStats() {
-  const hot      = extractedLeads.filter(l => l.tier === 'hot').length;
-  const warm     = extractedLeads.filter(l => l.tier === 'warm').length;
-  const cold     = extractedLeads.filter(l => l.tier === 'cold').length;
-  const withSite = extractedLeads.filter(l => l.website).length;
-  $('hotCount').textContent     = hot;
-  $('warmCount').textContent    = warm;
-  $('coldCount').textContent    = cold;
-  $('websiteCount').textContent = withSite;
-}
-
-// ── Filters & Render ───────────────────────────────────
-function getActiveFilters() {
-  return {
-    website:    $('chk-website').checked,
-    phone:      $('chk-phone').checked,
-    email:      $('chk-email').checked,
-    social:     $('chk-social').checked,
-    highRating: $('chk-rating').checked,
-    noWebsite:  $('chk-nowebsite').checked
-  };
-}
-
-function applyFiltersAndRender() {
-  const filters = getActiveFilters();
-  let filtered = [...extractedLeads];
-
-  if (filters.website)    filtered = filtered.filter(l => l.website);
-  if (filters.phone)      filtered = filtered.filter(l => l.phone);
-  if (filters.email)      filtered = filtered.filter(l => l.email);
-  if (filters.social)     filtered = filtered.filter(l => l.facebook || l.instagram || l.linkedin);
-  if (filters.highRating) filtered = filtered.filter(l => parseFloat(l.rating) >= 4.0);
-  if (filters.noWebsite)  filtered = filtered.filter(l => !l.website);
-  if (scoreFilter !== 'all') filtered = filtered.filter(l => l.tier === scoreFilter);
-
-  $('totalBadge').textContent = `${filtered.length} leads`;
-  renderPreviewTable(filtered.slice(0, 8));
-}
-
-function renderPreviewTable(leads) {
+function renderPreview() {
   const body = $('previewBody');
-  if (!leads.length) {
-    body.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:16px">No leads match filters</td></tr>`;
-    return;
-  }
-  body.innerHTML = leads.map(l => `
+  body.innerHTML = extractedLeads.slice(-5).map(l => `
     <tr>
-      <td title="${escHtml(l.name)}">${escHtml(l.name || '—')}</td>
-      <td><span class="score-tag ${l.tier}">${l.tier === 'hot' ? '🔥 Hot' : l.tier === 'warm' ? '⚡ Warm' : '❄ Cold'}</span></td>
-      <td>${escHtml(l.phone || '—')}</td>
-    </tr>`).join('');
+      <td>${l.name}</td>
+      <td><span class="user-plan-tag">${l.score || 0}%</span></td>
+      <td>${l.phone || '—'}</td>
+    </tr>
+  `).join('');
+  $('previewCountBadge').textContent = `${extractedLeads.length} leads`;
 }
 
-// Escape HTML to prevent XSS from scraped content
-function escHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// ── Export ──────────────────────────────────────────────
-// Always reads from storage so data persists after popup reopen
-function exportExcel() {
-  chrome.storage.local.get(['savedLeads'], res => {
-    const leads = res.savedLeads || [];
-    // Fallback to in-memory if storage empty (same session)
-    const data = leads.length ? leads : extractedLeads;
-    if (!data.length) { showToast('No leads to export', 'error'); return; }
-    if (typeof XLSX === 'undefined') { showToast('XLSX library not loaded', 'error'); return; }
-    doExcelExport(data);
-  });
-}
-
-function doExcelExport(data) {
-  try {
-    const rows = data.map(l => ({
-      'Business Name': l.name || '',
-      'Category':      l.category || '',
-      'Rating':        l.rating || '',
-      'Reviews':       l.reviews || '',
-      'Address':       l.address || '',
-      'Phone':         l.phone || '',
-      'Website':       l.website || '',
-      'Email':         l.email || '',
-      'Facebook':      l.facebook || '',
-      'Instagram':     l.instagram || '',
-      'LinkedIn':      l.linkedin || '',
-      'Lead Score':    l.score || 0,
-      'Lead Tier':     (l.tier || '').toUpperCase(),
-      'Tech Stack':    l.techStack || '',
-      'AI Insight':    l.aiInsight || ''
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const colWidths = Object.keys(rows[0]).map(k => ({ wch: Math.max(k.length + 2, 18) }));
-    ws['!cols'] = colWidths;
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Rizqara Leads');
-    // FIX: Use write() + blob instead of writeFile() — avoids CSP issues in extensions
-    const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbOut], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `rizqara-leads-${new Date().toISOString().slice(0,10)}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(`Exported ${rows.length} leads to Excel!`, 'success');
-  } catch(e) {
-    showToast(`Export failed: ${e.message}`, 'error');
-    console.error('Excel export error:', e);
-  }
-}
-
-function exportCSV() {
-  chrome.storage.local.get(['savedLeads'], res => {
-    const leads = res.savedLeads || [];
-    const data = leads.length ? leads : extractedLeads;
-    if (!data.length) { showToast('No leads to export', 'error'); return; }
-    doCSVExport(data);
-  });
-}
-
-function doCSVExport(data) {
-  const headers = [
-    'Business Name','Category','Rating','Reviews','Address',
-    'Phone','Website','Email','Facebook','Instagram','LinkedIn',
-    'Lead Score','Lead Tier','Tech Stack','AI Insight'
-  ];
-  const csvVal = v => `"${(v || '').toString().replace(/"/g, '""')}"`;
-  const rows = data.map(l =>
-    [l.name,l.category,l.rating,l.reviews,l.address,l.phone,
-     l.website,l.email,l.facebook,l.instagram,l.linkedin,
-     l.score,l.tier,l.techStack,l.aiInsight].map(csvVal).join(',')
-  );
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `rizqara-leads-${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  showToast(`Exported ${data.length} leads to CSV!`, 'success');
-}
-
-// ── CRM / Leads Tab ────────────────────────────────────
-function setupCrmFilter() {
-  document.querySelectorAll('.crm-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.crm-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      crmFilter = btn.dataset.crm;
-      renderLeadsList();
-    });
-  });
-  $('btnClearLeads').addEventListener('click', () => {
-    if (confirm('Clear all saved leads?')) {
-      savedLeads = [];
-      chrome.storage.local.set({ savedLeads: [] });
-      renderLeadsList();
-      showToast('Leads cleared', 'success');
-    }
-  });
-}
-
-function setupLeadsSearch() {
-  $('leadsSearch').addEventListener('input', e => renderLeadsList(e.target.value));
-}
-
-function renderLeadsList(search = '') {
-  // Reload from storage to get freshest data
-  chrome.storage.local.get(['savedLeads'], res => {
-    savedLeads = res.savedLeads || [];
-    let list = [...savedLeads];
-    if (crmFilter !== 'all') list = list.filter(l => l.crmStatus === crmFilter);
-    if (search) list = list.filter(l => (l.name || '').toLowerCase().includes(search.toLowerCase()));
-
-    const container = $('leadsList');
-    if (!list.length) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>No leads found.<br>Start an extraction to collect leads.</p></div>`;
-      return;
-    }
-    container.innerHTML = list.map((l) => {
-      const idx = savedLeads.indexOf(l);
-      return `
-      <div class="lead-card" onclick="openLeadModal(${idx})">
-        <div class="lead-card-header">
-          <span class="lead-card-name">${escHtml(l.name || 'Unknown')}</span>
-          <span class="score-tag ${l.tier}">${l.tier === 'hot' ? '🔥' : l.tier === 'warm' ? '⚡' : '❄'} ${l.tier || 'cold'}</span>
-        </div>
-        <div class="lead-card-meta">
-          <span>${escHtml(l.phone || 'No phone')}</span>
-          <span>${l.website ? '🌐 Website' : 'No website'}</span>
-          <span class="crm-badge ${l.crmStatus || 'new'}">${l.crmStatus || 'new'}</span>
-        </div>
-      </div>`;
-    }).join('');
-  });
-}
-
-// ── Modal ──────────────────────────────────────────────
-function setupModal() {
-  $('modalClose').addEventListener('click', () => { $('leadModal').style.display = 'none'; });
-  $('leadModal').addEventListener('click', e => {
-    if (e.target === $('leadModal')) $('leadModal').style.display = 'none';
-  });
-  $('btnSaveLead').addEventListener('click', saveLeadFromModal);
-}
-
-let currentModalIdx = -1;
-
-window.openLeadModal = function(idx) {
-  currentModalIdx = idx;
-  const l = savedLeads[idx];
-  if (!l) return;
-  $('modalName').textContent = l.name || 'Unknown Business';
-  $('modalCrmStatus').value = l.crmStatus || 'new';
-  $('modalNotes').value = l.notes || '';
-
-  const rows = [
-    detailRow('📍 Address', l.address),
-    detailRow('📞 Phone', l.phone),
-    detailRow('🌐 Website', l.website ? `<a href="${escHtml(l.website)}" target="_blank">${escHtml(l.website)}</a>` : null),
-    detailRow('📧 Email', l.email ? `<a href="mailto:${escHtml(l.email)}">${escHtml(l.email)}</a>` : null),
-    detailRow('⭐ Rating', l.rating ? `${l.rating} ${l.reviews ? `(${l.reviews} reviews)` : ''}` : null),
-    detailRow('📘 Facebook', l.facebook ? `<a href="${escHtml(l.facebook)}" target="_blank">${escHtml(l.facebook)}</a>` : null),
-    detailRow('📸 Instagram', l.instagram ? `<a href="${escHtml(l.instagram)}" target="_blank">${escHtml(l.instagram)}</a>` : null),
-    detailRow('💼 LinkedIn', l.linkedin ? `<a href="${escHtml(l.linkedin)}" target="_blank">${escHtml(l.linkedin)}</a>` : null),
-    detailRow('🔧 Tech Stack', l.techStack),
-    detailRow('📊 Lead Score', l.score != null ? `${l.score}/100 (${l.tier})` : null),
-    l.aiInsight ? `<div class="modal-ai-box"><div class="modal-ai-label">🤖 AI Insight</div><div class="modal-ai-text">${escHtml(l.aiInsight)}</div></div>` : ''
-  ].join('');
-
-  $('modalBody').innerHTML = rows;
-  $('leadModal').style.display = 'flex';
-};
-
-function detailRow(label, value) {
-  if (!value) return '';
-  return `<div class="modal-detail-row"><span class="modal-detail-label">${label}</span><span class="modal-detail-value">${value}</span></div>`;
-}
-
-function saveLeadFromModal() {
-  if (currentModalIdx < 0 || !savedLeads[currentModalIdx]) return;
-  savedLeads[currentModalIdx].crmStatus = $('modalCrmStatus').value;
-  savedLeads[currentModalIdx].notes = $('modalNotes').value;
-  chrome.storage.local.set({ savedLeads }, () => {
-    $('leadModal').style.display = 'none';
-    renderLeadsList();
-    showToast('✅ Lead saved!', 'success');
-  });
-}
-
-// ── Settings ───────────────────────────────────────────
-function setupSettingsPage() {
-  $('tog-ai').addEventListener('change', () => {
-    $('aiKeyWrap').style.display = $('tog-ai').checked ? 'block' : 'none';
-  });
-  $('btnSaveSettings').addEventListener('click', saveSettings);
-}
-
-function loadSettings() {
-  chrome.storage.local.get(['settings'], res => {
-    settings = res.settings || {
-      apiUrl: 'http://localhost:3000',
-      speed: 'medium',
-      email: true,
-      social: true,
-      antiblock: true
-    };
-    $('apiUrl').value                = settings.apiUrl || 'http://localhost:3000';
-    $('tog-email').checked           = settings.email !== false;
-    $('tog-social').checked          = settings.social !== false;
-    $('tog-intelligence').checked    = !!settings.intelligence;
-    $('tog-antiblock').checked       = settings.antiblock !== false;
-    $('tog-background').checked      = !!settings.background;
-    $('tog-ai').checked              = !!settings.ai;
-    $('aiKeyWrap').style.display     = settings.ai ? 'block' : 'none';
-    if (settings.openaiKey) $('openaiKey').value = settings.openaiKey;
-    const speedEl = document.querySelector(`input[name="speed"][value="${settings.speed || 'medium'}"]`);
-    if (speedEl) speedEl.checked = true;
-  });
-}
-
-function getSettings() {
-  return {
-    apiUrl:       $('apiUrl').value || 'http://localhost:3000',
-    speed:        document.querySelector('input[name="speed"]:checked')?.value || 'medium',
-    email:        $('tog-email').checked,
-    social:       $('tog-social').checked,
-    intelligence: $('tog-intelligence').checked,
-    antiblock:    $('tog-antiblock').checked,
-    background:   $('tog-background').checked,
-    ai:           $('tog-ai').checked,
-    openaiKey:    $('openaiKey').value
-  };
-}
-
-function saveSettings() {
-  settings = getSettings();
-  chrome.storage.local.set({ settings }, () => showToast('⚙️ Settings saved!', 'success'));
-}
-
-function loadSavedLeads() {
-  chrome.storage.local.get(['savedLeads'], res => {
-    savedLeads = res.savedLeads || [];
-  });
-}
-
-// ── Toast ──────────────────────────────────────────────
 function showToast(msg, type = '') {
-  const toast = $('toast');
-  toast.textContent = msg;
-  toast.className = `toast show ${type}`.trim();
-  clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => { toast.className = 'toast'; }, 3000);
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  t.style.border = type === 'success' ? '1px solid #00ff88' : '1px solid var(--primary)';
+  setTimeout(() => t.style.display = 'none', 3000);
 }

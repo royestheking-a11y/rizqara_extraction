@@ -1,0 +1,37 @@
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-deep);
+}
+
+.page-wrapper {
+  padding: 48px; /* Increased from 32px */
+  max-width: 1400px;
+  margin: 0;
+  width: 100%;
+}
+
+.loading-screen {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  .page-wrapper {
+    padding: 16px;
+  }
+}
