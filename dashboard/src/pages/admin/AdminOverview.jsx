@@ -26,7 +26,6 @@ const AdminOverview = () => {
   };
 
   return (
-  return (
     <div className="admin-overview-premium animate-fade">
       {/* Hero Welcome Section */}
       <div className="admin-hero">
