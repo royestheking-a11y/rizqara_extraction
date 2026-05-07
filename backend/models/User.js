@@ -7,10 +7,10 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   plan: { 
     type: String, 
-    enum: ['free', 'standard', 'premium'], 
+    enum: ['free', 'pro', 'business'], 
     default: 'free' 
   },
-  daily_limit: { type: Number, default: 20 }, // 20 for free trailer
+  daily_limit: { type: Number, default: 20 }, // 20 for free trial (LIFETIME), 100 for Pro (DAILY), 300 for Business (DAILY)
   usage_today: { type: Number, default: 0 },
   total_usage: { type: Number, default: 0 },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },

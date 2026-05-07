@@ -14,18 +14,18 @@ const Subscriptions = ({ user }) => {
       id: 'free',
       name: 'Free Trial',
       price: '0',
-      leads: '20 leads total',
-      features: ['20 leads starter', 'Google Maps extraction', 'Basic scoring', 'Excel export']
+      leads: '20 leads lifetime',
+      features: ['20 leads total extraction', 'Google Maps extraction', 'Basic scoring', 'Excel export']
     },
     {
-      id: 'standard',
+      id: 'pro',
       name: 'Standard Pro',
       price: '200',
       leads: '100 leads / day',
       features: ['100 leads per day', 'All Free features', 'Priority support', 'Tech stack detection']
     },
     {
-      id: 'premium',
+      id: 'business',
       name: 'Premium Elite',
       price: '400',
       leads: '300 leads / day',
@@ -71,9 +71,9 @@ const Subscriptions = ({ user }) => {
 
       <div className="plans-grid">
         {plans.map((plan) => (
-          <div key={plan.id} className={`plan-card card ${user.plan === plan.id ? 'active' : ''} ${plan.id === 'premium' ? 'featured' : ''}`}>
+          <div key={plan.id} className={`plan-card card ${user.plan === plan.id ? 'active' : ''} ${plan.id === 'business' ? 'featured' : ''}`}>
             {user.plan === plan.id && <div className="current-badge">YOUR CURRENT PLAN</div>}
-            {plan.id === 'premium' && <div className="featured-badge">BEST VALUE</div>}
+            {plan.id === 'business' && <div className="featured-badge">BEST VALUE</div>}
             
             <div className="plan-header">
               <h3>{plan.name}</h3>

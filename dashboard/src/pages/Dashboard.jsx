@@ -35,14 +35,17 @@ const Dashboard = ({ user }) => {
         <div className="stat-card card">
           <div className="stat-header">
             <div className="stat-icon p-bg"><Target size={22} /></div>
-            <div className="stat-label">DAILY USAGE</div>
+            <div className="stat-label">{user.plan === 'free' ? 'LIFETIME USAGE' : 'DAILY USAGE'}</div>
           </div>
           <div className="stat-content">
-            <div className="stat-value">{user.usage_today} <span className="stat-total">/ {user.daily_limit}</span></div>
-            <div className="usage-progress-wrap">
-              <div className="usage-progress-fill" style={{ width: `${Math.min(100, usagePct)}%` }}></div>
+            <div className="stat-value">
+              {user.plan === 'free' ? user.total_usage : user.usage_today} 
+              <span className="stat-total">/ {user.plan === 'free' ? 20 : user.daily_limit}</span>
             </div>
-            <p className="stat-desc">Leads extracted today</p>
+            <div className="usage-progress-wrap">
+              <div className="usage-progress-fill" style={{ width: `${Math.min(100, user.plan === 'free' ? (user.total_usage / 20) * 100 : (user.usage_today / user.daily_limit) * 100)}%` }}></div>
+            </div>
+            <p className="stat-desc">{user.plan === 'free' ? 'Total leads extracted' : 'Leads extracted today'}</p>
           </div>
         </div>
 
@@ -52,8 +55,8 @@ const Dashboard = ({ user }) => {
             <div className="stat-label">REMAINING</div>
           </div>
           <div className="stat-content">
-            <div className="stat-value">{remaining}</div>
-            <p className="stat-desc">Leads available until reset</p>
+            <div className="stat-value">{user.plan === 'free' ? Math.max(0, 20 - user.total_usage) : remaining}</div>
+            <p className="stat-desc">{user.plan === 'free' ? 'Leads left in trial' : 'Leads available until reset'}</p>
           </div>
         </div>
 

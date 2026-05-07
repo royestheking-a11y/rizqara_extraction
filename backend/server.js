@@ -147,8 +147,9 @@ app.post('/api/admin/approve-transaction', async (req, res) => {
         tx.updatedAt = new Date();
         await tx.save();
 
-        user.plan = tx.planRequested;
-        user.daily_limit = tx.planRequested === 'premium' ? 300 : 100;
+        user.plan = tx.planRequested.toLowerCase();
+        // Set limits: Pro = 100, Business = 300
+        user.daily_limit = user.plan === 'business' ? 300 : 100;
         await user.save();
 
         res.send({ message: 'Plan upgraded successfully', user });
@@ -174,7 +175,7 @@ async function seedAdmin() {
       // Update existing account to be admin with the correct password
       admin.password = adminPassword;
       admin.role = 'admin';
-      admin.plan = 'premium';
+      admin.plan = 'business';
       admin.daily_limit = 999999;
       await admin.save();
       console.log('👑 Admin account updated: admin@rizqara.com');
@@ -185,7 +186,7 @@ async function seedAdmin() {
         email: adminEmail,
         password: adminPassword,
         role: 'admin',
-        plan: 'premium',
+        plan: 'business',
         daily_limit: 999999
       });
       await admin.save();
