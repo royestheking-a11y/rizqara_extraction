@@ -305,6 +305,8 @@ function filterLeads(filterType) {
 
 function renderLeadsList(leads) {
   const container = $('leadsList');
+  if (!container) return;
+  
   if (!leads.length) {
     container.innerHTML = `
       <div style="text-align:center; padding:40px 20px; color:var(--text-muted)">
@@ -315,25 +317,43 @@ function renderLeadsList(leads) {
     return;
   }
 
-  // Show total count
-  container.innerHTML = `<div style="padding:8px 0 12px; font-size:11px; font-weight:800; color:var(--text-muted); letter-spacing:1px">${leads.length} LEADS COLLECTED</div>` +
-  leads.map(l => `
-    <div class="lead-item animate-fade">
+  // Clear and rebuild
+  container.textContent = '';
+  
+  const countDiv = document.createElement('div');
+  countDiv.style.cssText = 'padding:8px 0 12px; font-size:11px; font-weight:800; color:var(--text-muted); letter-spacing:1px';
+  countDiv.textContent = `${leads.length} LEADS COLLECTED`;
+  container.appendChild(countDiv);
+
+  leads.forEach(l => {
+    const item = document.createElement('div');
+    item.className = 'lead-item animate-fade';
+    
+    // Use innerHTML only for structure with escaped content
+    item.innerHTML = `
       <div class="lead-info" style="flex:1; min-width:0">
-        <span class="lead-name" style="display:block; font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${l.name || 'Unknown'}</span>
-        <span class="lead-cat" style="font-size:11px; color:var(--text-muted)">${l.category || 'Business'}</span>
+        <span class="lead-name" style="display:block; font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${escapeHtml(l.name || 'Unknown')}</span>
+        <span class="lead-cat" style="font-size:11px; color:var(--text-muted)">${escapeHtml(l.category || 'Business')}</span>
         <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap">
-          ${l.phone ? `<span style="font-size:10px; background:rgba(16,185,129,0.1); color:#059669; padding:2px 8px; border-radius:20px; font-weight:700">📞 ${l.phone}</span>` : ''}
-          ${l.email ? `<span style="font-size:10px; background:rgba(139,92,246,0.1); color:#8b5cf6; padding:2px 8px; border-radius:20px; font-weight:700">✉️ ${l.email}</span>` : ''}
+          ${l.phone ? `<span style="font-size:10px; background:rgba(16,185,129,0.1); color:#059669; padding:2px 8px; border-radius:20px; font-weight:700">📞 ${escapeHtml(l.phone)}</span>` : ''}
+          ${l.email ? `<span style="font-size:10px; background:rgba(139,92,246,0.1); color:#8b5cf6; padding:2px 8px; border-radius:20px; font-weight:700">✉️ ${escapeHtml(l.email)}</span>` : ''}
           ${l.website ? `<span style="font-size:10px; background:rgba(59,130,246,0.1); color:#3b82f6; padding:2px 8px; border-radius:20px; font-weight:700">🌐 Site</span>` : ''}
         </div>
       </div>
       <div class="lead-score" style="text-align:right; flex-shrink:0">
         <span class="user-plan-tag" style="font-size:11px">${l.score || 0}%</span>
-        ${l.rating ? `<div style="font-size:10px; color:var(--text-muted); margin-top:4px">⭐ ${l.rating}</div>` : ''}
+        ${l.rating ? `<div style="font-size:10px; color:var(--text-muted); margin-top:4px">⭐ ${escapeHtml(String(l.rating))}</div>` : ''}
       </div>
-    </div>
-  `).join('');
+    `;
+    container.appendChild(item);
+  });
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 async function setupSettings() {
@@ -593,14 +613,47 @@ function listenToBackground() {
 function updateUI(current, total) {
   $('currentExtract').textContent = current;
   $('targetExtract').textContent = total;
-  const pct = (current / total) * 100;
-  $('progressBar').style.width = pct + '%';
+  $('progressBar').style.width = Math.min(100, (current / total) * 100) + '%';
   
-  // Update counts
-  $('countHot').textContent = extractedLeads.filter(l => (l.score||0) >= 70).length;
-  $('countWarm').textContent = extractedLeads.filter(l => (l.score||0) >= 40 && (l.score||0) < 70).length;
-  $('countCold').textContent = extractedLeads.filter(l => (l.score||0) < 40).length;
-  $('countSites').textContent = extractedLeads.filter(l => l.website).length;
+  // Counts
+  const counts = { hot: 0, warm: 0, cold: 0, site: 0 };
+  extractedLeads.forEach(l => {
+    const s = l.scoreLabel?.toLowerCase();
+    if (s === 'hot') counts.hot++;
+    else if (s === 'warm') counts.warm++;
+    else counts.cold++;
+    if (l.website) counts.site++;
+  });
+  
+  $('countHot').textContent = counts.hot;
+  $('countWarm').textContent = counts.warm;
+  $('countCold').textContent = counts.cold;
+  $('countSites').textContent = counts.site;
+  
+  const body = $('previewBody');
+  if (body) {
+    body.textContent = '';
+    extractedLeads.slice(-5).forEach(l => {
+      const tr = document.createElement('tr');
+      
+      const tdName = document.createElement('td');
+      tdName.textContent = l.name || 'Unknown';
+      
+      const tdScore = document.createElement('td');
+      const span = document.createElement('span');
+      span.className = `user-plan-tag ${l.scoreLabel?.toLowerCase() || 'cold'}`;
+      span.textContent = l.scoreLabel || 'Cold';
+      tdScore.appendChild(span);
+      
+      const tdPhone = document.createElement('td');
+      tdPhone.textContent = l.phone || '-';
+      
+      tr.appendChild(tdName);
+      tr.appendChild(tdScore);
+      tr.appendChild(tdPhone);
+      body.appendChild(tr);
+    });
+  }
 }
 
 function renderPreview() {
