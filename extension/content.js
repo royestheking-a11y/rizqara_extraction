@@ -299,13 +299,31 @@
           console.debug('[Rizqara] Enrichment failed:', e.message);
         }
       }
-
+      lead.score = calculateScore(lead);
       return lead;
 
     } catch (e) {
       console.error('[Rizqara] Extraction error:', e);
       return null;
     }
+  }
+
+  function calculateScore(l) {
+    let s = 0;
+    if (l.phone) s += 20;
+    if (l.website) s += 25;
+    if (l.email) s += 25;
+    if (l.facebook) s += 10;
+    if (l.instagram) s += 10;
+    if (l.linkedin) s += 10;
+    
+    // Bonus for high rating + many reviews
+    const rating = parseFloat(l.rating) || 0;
+    const revCount = parseInt(l.reviews) || 0;
+    if (rating >= 4.5 && revCount > 50) s += 10;
+    else if (rating >= 4.0 && revCount > 20) s += 5;
+
+    return Math.min(100, s);
   }
 
   // ── Detail panel locator ──────────────────────────
