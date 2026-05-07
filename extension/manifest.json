@@ -26,8 +26,7 @@
   "host_permissions": [
     "https://www.google.com/maps/*",
     "https://maps.google.com/*",
-    "http://*/*",
-    "https://*/*"
+    "https://rizqara-extraction-backend.onrender.com/*"
   ],
   "background": {
     "service_worker": "background.js"
