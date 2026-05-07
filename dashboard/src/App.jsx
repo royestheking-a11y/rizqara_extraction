@@ -3,6 +3,7 @@ import API_BASE_URL from './config';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Privacy from './pages/Privacy';
 import Dashboard from './pages/Dashboard';
 import Subscriptions from './pages/Subscriptions';
 import Leads from './pages/Leads';
@@ -58,6 +59,7 @@ function App() {
             <Routes>
               <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to="/" />} />
               <Route path="/register" element={!user ? <Register setUser={setUser} /> : <Navigate to="/" />} />
+              <Route path="/privacy" element={<Privacy />} />
               <Route path="/" element={user ? <Dashboard user={user} setUser={setUser} /> : <Navigate to="/login" />} />
               <Route path="/leads" element={user ? <Leads user={user} /> : <Navigate to="/login" />} />
               <Route path="/subscriptions" element={user ? <Subscriptions user={user} /> : <Navigate to="/login" />} />
