@@ -566,7 +566,9 @@ function checkPageStatus() {
 function listenToBackground() {
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'LEAD_FOUND') {
-      extractedLeads.push(msg.data);
+      const lead = msg.data;
+      lead.scoreLabel = getScoreLabel(lead.score || 0);
+      extractedLeads.push(lead);
       
       // Real-time usage update for the UI
       if (user) {
@@ -615,12 +617,10 @@ function updateUI(current, total) {
   $('targetExtract').textContent = total;
   $('progressBar').style.width = Math.min(100, (current / total) * 100) + '%';
   
-  // Counts
   const counts = { hot: 0, warm: 0, cold: 0, site: 0 };
   extractedLeads.forEach(l => {
-    const s = l.scoreLabel?.toLowerCase();
-    if (s === 'hot') counts.hot++;
-    else if (s === 'warm') counts.warm++;
+    const label = getScoreLabel(l.score || 0).toLowerCase();
+    if (counts.hasOwnProperty(label)) counts[label]++;
     else counts.cold++;
     if (l.website) counts.site++;
   });
@@ -635,14 +635,15 @@ function updateUI(current, total) {
     body.textContent = '';
     extractedLeads.slice(-5).forEach(l => {
       const tr = document.createElement('tr');
+      const label = getScoreLabel(l.score || 0);
       
       const tdName = document.createElement('td');
       tdName.textContent = l.name || 'Unknown';
       
       const tdScore = document.createElement('td');
       const span = document.createElement('span');
-      span.className = `user-plan-tag ${l.scoreLabel?.toLowerCase() || 'cold'}`;
-      span.textContent = l.scoreLabel || 'Cold';
+      span.className = `user-plan-tag ${label.toLowerCase()}`;
+      span.textContent = label;
       tdScore.appendChild(span);
       
       const tdPhone = document.createElement('td');
@@ -674,4 +675,10 @@ function showToast(msg, type = '') {
   t.style.display = 'block';
   t.style.border = type === 'success' ? '1px solid #00ff88' : '1px solid var(--primary)';
   setTimeout(() => t.style.display = 'none', 3000);
+}
+
+function getScoreLabel(score) {
+  if (score >= 70) return 'Hot';
+  if (score >= 40) return 'Warm';
+  return 'Cold';
 }
