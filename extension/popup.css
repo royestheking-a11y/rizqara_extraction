@@ -108,22 +108,31 @@ body {
 .user-pill-info {
   display: flex;
   flex-direction: column;
-  padding: 4px 8px;
-  gap: 1px;
+  align-items: flex-end;
+  gap: 2px;
 }
 
 .plan-indicator {
-  font-size: 8px;
-  font-weight: 900;
+  font-size: 9px;
+  font-weight: 800;
   color: var(--primary);
-  text-transform: uppercase;
   letter-spacing: 0.5px;
+  background: rgba(128, 0, 0, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 .usage-count-mini {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.lifetime-total-mini {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
+  opacity: 0.8;
 }
 
 .upgrade-link {

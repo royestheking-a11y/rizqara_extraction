@@ -4,65 +4,69 @@ const Lead = require('../models/Lead');
 const User = require('../models/User');
 const router = express.Router();
 
-// Save a new lead — with ATOMIC usage increment (no race condition)
+// Save a new lead — with ATOMIC usage increment & ROBUST daily reset
 router.post('/', auth, async (req, res) => {
   try {
     const userId = req.user._id;
     const userPlan = req.user.plan;
     const dailyLimit = req.user.daily_limit;
 
-    // Handle daily reset atomically
+    // 1. ATOMIC DAILY RESET
+    // We only reset if the last_reset_date is BEFORE the start of today (local server time)
     const now = new Date();
-    const lastReset = new Date(req.user.last_reset_date);
-    const isDifferentDay = now.getDate() !== lastReset.getDate() || 
-                          now.getMonth() !== lastReset.getMonth() || 
-                          now.getFullYear() !== lastReset.getFullYear();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // This update only executes for the FIRST request of the day
+    await User.updateOne(
+      { _id: userId, last_reset_date: { $lt: startOfToday } },
+      { $set: { usage_today: 0, last_reset_date: now } }
+    );
 
-    if (isDifferentDay) {
-      await User.findByIdAndUpdate(userId, { 
-        $set: { usage_today: 0, last_reset_date: now } 
-      });
-    }
-
-    // ATOMIC check-and-increment using findOneAndUpdate
-    // This is a SINGLE MongoDB operation — no race condition possible
+    // 2. ATOMIC CHECK-AND-INCREMENT
+    // This prevents race conditions where simultaneous requests skip the limit check
     let query;
     if (userPlan === 'free') {
-      // Free users: check lifetime total < 20
+      // Free users: limited to 20 leads LIFETIME
       query = { _id: userId, total_usage: { $lt: 20 } };
     } else {
-      // Paid users: check daily usage < their limit
+      // Paid users: limited to daily_limit leads TODAY
+      // Note: We don't check total_usage here as paid plans are usually daily-limited
       query = { _id: userId, usage_today: { $lt: dailyLimit } };
     }
 
     const updatedUser = await User.findOneAndUpdate(
       query,
       { $inc: { usage_today: 1, total_usage: 1 } },
-      { new: true } // Return the document AFTER the update
+      { new: true } // Return the fresh document
     );
 
-    // If no document matched, the user has exceeded their limit
+    // 3. HANDLE LIMIT EXCEEDED
     if (!updatedUser) {
-      const errorMsg = userPlan === 'free' 
-        ? 'You have reached the lifetime limit of 20 leads for the FREE plan. Upgrade to continue!'
-        : `You have reached your daily limit of ${dailyLimit} leads. Wait until tomorrow or upgrade!`;
+      // Re-fetch user to get current counts for the error message
+      const currentUser = await User.findById(userId);
+      const isFree = currentUser.plan === 'free';
+      const errorMsg = isFree 
+        ? `Lifetime limit reached (${currentUser.total_usage}/20). Please upgrade for more extraction!`
+        : `Daily limit reached (${currentUser.usage_today}/${currentUser.daily_limit}). Upgrade or wait until tomorrow!`;
       
       return res.status(403).json({ 
         error: 'Limit reached', 
         message: errorMsg,
-        plan: userPlan,
-        limit: userPlan === 'free' ? 20 : dailyLimit
+        plan: currentUser.plan,
+        usage: isFree ? currentUser.total_usage : currentUser.usage_today,
+        limit: isFree ? 20 : currentUser.daily_limit,
+        total_usage: currentUser.total_usage
       });
     }
 
-    // Save the lead data
+    // 4. SAVE THE LEAD
     const lead = new Lead({
       ...req.body,
       userId: userId
     });
     await lead.save();
 
-    // Return the REAL, up-to-date counts from the database
+    // 5. SUCCESS RESPONSE with REAL DB COUNTS
     res.status(201).send({
       lead,
       usage: {
@@ -73,7 +77,7 @@ router.post('/', auth, async (req, res) => {
       }
     });
   } catch (e) {
-    console.error('[Leads] Save error:', e.message);
+    console.error('[Leads API Error]:', e.message);
     res.status(400).send({ error: e.message });
   }
 });

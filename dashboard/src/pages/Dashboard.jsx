@@ -3,22 +3,35 @@ import { Target, Zap, Clock, TrendingUp, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import API_BASE_URL from '../config';
 
-const Dashboard = ({ user }) => {
+const Dashboard = ({ user, setUser }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchHistory();
+    fetchData();
   }, []);
 
-  const fetchHistory = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE_URL}/api/payment/history`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      setHistory(res.data);
+      
+      // Fetch both history and fresh profile
+      const [historyRes, profileRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/payment/history`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        axios.get(`${API_BASE_URL}/api/user/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+      
+      setHistory(historyRes.data);
+      
+      // Update global user state
+      if (typeof setUser === 'function') {
+        setUser(profileRes.data);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -89,7 +102,7 @@ const Dashboard = ({ user }) => {
             <Clock size={24} className="title-icon" />
             <h2>Transaction & Plan History</h2>
           </div>
-          <button className="refresh-btn" onClick={fetchHistory} disabled={loading}>
+          <button className="refresh-btn" onClick={fetchData} disabled={loading}>
             <RefreshCw size={18} className={loading ? 'spinning' : ''} />
             <span>Refresh Data</span>
           </button>

@@ -58,7 +58,7 @@ function App() {
             <Routes>
               <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to="/" />} />
               <Route path="/register" element={!user ? <Register setUser={setUser} /> : <Navigate to="/" />} />
-              <Route path="/" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
+              <Route path="/" element={user ? <Dashboard user={user} setUser={setUser} /> : <Navigate to="/login" />} />
               <Route path="/leads" element={user ? <Leads user={user} /> : <Navigate to="/login" />} />
               <Route path="/subscriptions" element={user ? <Subscriptions user={user} /> : <Navigate to="/login" />} />
               

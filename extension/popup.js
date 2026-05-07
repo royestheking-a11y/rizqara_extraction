@@ -75,19 +75,27 @@ function initAuth() {
 
 async function fetchUserProfile(token) {
   try {
+    // 1. Immediately show whatever we have in storage to avoid "0" flicker
+    chrome.storage.local.get(['serverUsage'], (res) => {
+      if (res.serverUsage && user) {
+        user.total_usage = Math.max(user.total_usage || 0, res.serverUsage.total || 0);
+        user.usage_today = Math.max(user.usage_today || 0, res.serverUsage.today || 0);
+        updateUserUI();
+      }
+    });
+
     const res = await fetch('https://rizqara-extraction-backend.onrender.com/api/user/profile', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    
     if (res.ok) {
       const serverUser = await res.json();
       
-      // Also check the latest server-confirmed counts from background.js
-      // These are written by background.js after each successful lead save
+      // Also check background-confirmed counts
       const stored = await new Promise(resolve => {
         chrome.storage.local.get(['serverUsage'], (r) => resolve(r.serverUsage || null));
       });
       
-      // Use the HIGHEST value from: local user, server profile, and background-confirmed counts
       const localTotal = user?.total_usage || 0;
       const localToday = user?.usage_today || 0;
       const storedTotal = stored?.total || 0;
@@ -101,11 +109,11 @@ async function fetchUserProfile(token) {
       user = serverUser;
       updateUserUI();
       showAuthOverlay(false);
-    } else {
+    } else if (res.status === 401) {
       handleLogout();
     }
   } catch (err) {
-    console.error('Profile fetch error:', err);
+    console.error('Profile sync error:', err);
   }
 }
 
