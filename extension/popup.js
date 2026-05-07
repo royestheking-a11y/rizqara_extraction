@@ -28,6 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
   listenToBackground();
   setupSettings();
   
+  // Lead search - live filter as user types
+  const searchInput = $('leadSearch');
+  if (searchInput) {
+    searchInput.oninput = () => loadSavedLeads();
+  }
+  
   // Ensure we show the right tab on start
   switchTab('extract');
 });
@@ -198,6 +204,11 @@ function switchTab(tabId) {
   currentTab = tabId;
   $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
   $$('.tab-content').forEach(c => c.classList.toggle('active', c.id === tabId + 'Tab'));
+  
+  // When switching to Leads tab, load saved leads from browser storage
+  if (tabId === 'leads') {
+    loadSavedLeads();
+  }
 }
 
 // ── Extraction Logic ──────────────────────────────────
@@ -238,19 +249,42 @@ function setupScoreFilter() {
   });
 }
 
-function filterLeads(filterType) {
-  showToast(`Filtering: ${filterType.toUpperCase()}`, 'success');
-  let filtered = [...extractedLeads];
-  
-  if (filterType === 'new') {
-    filtered = extractedLeads.filter(l => !l.lastContacted); // Example logic
-  } else if (filterType === 'interested') {
-    filtered = extractedLeads.filter(l => (l.score || 0) >= 70);
-  } else if (filterType === 'client') {
-    filtered = extractedLeads.filter(l => l.isClient); // Example logic
-  }
+function loadSavedLeads(filterType = 'all') {
+  chrome.storage.local.get(['savedLeads'], (res) => {
+    let leads = res.savedLeads || [];
+    
+    // Also merge in any leads from the current extraction session
+    if (extractedLeads.length) {
+      const names = new Set(leads.map(l => l.name));
+      const newOnes = extractedLeads.filter(l => l.name && !names.has(l.name));
+      leads = [...newOnes, ...leads];
+    }
+    
+    // Apply filter
+    if (filterType === 'new') {
+      leads = leads.filter(l => !l.lastContacted);
+    } else if (filterType === 'interested') {
+      leads = leads.filter(l => (l.score || 0) >= 70);
+    } else if (filterType === 'client') {
+      leads = leads.filter(l => l.website && l.phone);
+    }
+    
+    // Apply search
+    const searchVal = ($('leadSearch')?.value || '').toLowerCase();
+    if (searchVal) {
+      leads = leads.filter(l => 
+        (l.name || '').toLowerCase().includes(searchVal) ||
+        (l.category || '').toLowerCase().includes(searchVal) ||
+        (l.phone || '').includes(searchVal)
+      );
+    }
+    
+    renderLeadsList(leads);
+  });
+}
 
-  renderLeadsList(filtered);
+function filterLeads(filterType) {
+  loadSavedLeads(filterType);
 }
 
 function renderLeadsList(leads) {
@@ -259,20 +293,28 @@ function renderLeadsList(leads) {
     container.innerHTML = `
       <div style="text-align:center; padding:40px 20px; color:var(--text-muted)">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:12px; opacity:0.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <p style="font-size:13px">No leads match this filter.</p>
+        <p style="font-size:13px">No leads found. Start an extraction to collect leads.</p>
       </div>
     `;
     return;
   }
 
-  container.innerHTML = leads.map(l => `
+  // Show total count
+  container.innerHTML = `<div style="padding:8px 0 12px; font-size:11px; font-weight:800; color:var(--text-muted); letter-spacing:1px">${leads.length} LEADS COLLECTED</div>` +
+  leads.map(l => `
     <div class="lead-item animate-fade">
-      <div class="lead-info">
-        <span class="lead-name">${l.name}</span>
-        <span class="lead-cat">${l.category || 'Business'}</span>
+      <div class="lead-info" style="flex:1; min-width:0">
+        <span class="lead-name" style="display:block; font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${l.name || 'Unknown'}</span>
+        <span class="lead-cat" style="font-size:11px; color:var(--text-muted)">${l.category || 'Business'}</span>
+        <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap">
+          ${l.phone ? `<span style="font-size:10px; background:rgba(16,185,129,0.1); color:#059669; padding:2px 8px; border-radius:20px; font-weight:700">📞 ${l.phone}</span>` : ''}
+          ${l.email ? `<span style="font-size:10px; background:rgba(139,92,246,0.1); color:#8b5cf6; padding:2px 8px; border-radius:20px; font-weight:700">✉️ ${l.email}</span>` : ''}
+          ${l.website ? `<span style="font-size:10px; background:rgba(59,130,246,0.1); color:#3b82f6; padding:2px 8px; border-radius:20px; font-weight:700">🌐 Site</span>` : ''}
+        </div>
       </div>
-      <div class="lead-score">
-        <span class="user-plan-tag">${l.score || 0}%</span>
+      <div class="lead-score" style="text-align:right; flex-shrink:0">
+        <span class="user-plan-tag" style="font-size:11px">${l.score || 0}%</span>
+        ${l.rating ? `<div style="font-size:10px; color:var(--text-muted); margin-top:4px">⭐ ${l.rating}</div>` : ''}
       </div>
     </div>
   `).join('');
@@ -394,40 +436,52 @@ function getFilters() {
 }
 
 function exportToCSV() {
-  if (extractedLeads.length === 0) return showToast('No leads to export');
-  showToast('Preparing CSV file...', 'success');
+  // Pull from browser storage + current session
+  chrome.storage.local.get(['savedLeads'], (res) => {
+    let allLeads = res.savedLeads || [];
+    
+    // Merge current session leads
+    if (extractedLeads.length) {
+      const names = new Set(allLeads.map(l => l.name));
+      const newOnes = extractedLeads.filter(l => l.name && !names.has(l.name));
+      allLeads = [...allLeads, ...newOnes];
+    }
+    
+    if (allLeads.length === 0) return showToast('No leads to export');
+    showToast(`Exporting ${allLeads.length} leads...`, 'success');
 
-  const headers = [
-    'Business Name', 'Category', 'Phone', 'Website', 'Email', 
-    'Facebook', 'Instagram', 'LinkedIn', 'Rating', 'Reviews', 
-    'Address', 'Lead Score'
-  ];
+    const headers = [
+      'Business Name', 'Category', 'Phone', 'Website', 'Email', 
+      'Facebook', 'Instagram', 'LinkedIn', 'Rating', 'Reviews', 
+      'Address', 'Lead Score'
+    ];
 
-  const rows = extractedLeads.map(l => [
-    `"${(l.name || '').replace(/"/g, '""')}"`,
-    `"${(l.category || '').replace(/"/g, '""')}"`,
-    `"${(l.phone || '').replace(/"/g, '""')}"`,
-    `"${(l.website || '').replace(/"/g, '""')}"`,
-    `"${(l.email || '').replace(/"/g, '""')}"`,
-    `"${(l.facebook || '').replace(/"/g, '""')}"`,
-    `"${(l.instagram || '').replace(/"/g, '""')}"`,
-    `"${(l.linkedin || '').replace(/"/g, '""')}"`,
-    l.rating || 0,
-    l.reviews || 0,
-    `"${(l.address || '').replace(/"/g, '""')}"`,
-    `"${l.score || 0}%"`
-  ]);
+    const rows = allLeads.map(l => [
+      `"${(l.name || '').replace(/"/g, '""')}"`,
+      `"${(l.category || '').replace(/"/g, '""')}"`,
+      `"${(l.phone || '').replace(/"/g, '""')}"`,
+      `"${(l.website || '').replace(/"/g, '""')}"`,
+      `"${(l.email || '').replace(/"/g, '""')}"`,
+      `"${(l.facebook || '').replace(/"/g, '""')}"`,
+      `"${(l.instagram || '').replace(/"/g, '""')}"`,
+      `"${(l.linkedin || '').replace(/"/g, '""')}"`,
+      l.rating || 0,
+      l.reviews || 0,
+      `"${(l.address || '').replace(/"/g, '""')}"`,
+      `"${l.score || 0}%"`
+    ]);
 
-  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.setAttribute('hidden', '');
-  a.setAttribute('href', url);
-  a.setAttribute('download', `rizqara_leads_${new Date().getTime()}.csv`);
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `rizqara_leads_${new Date().getTime()}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
 }
 
 function pauseExtraction() {
