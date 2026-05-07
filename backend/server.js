@@ -23,6 +23,20 @@ cron.schedule('0 0 * * *', async () => {
   }
 });
 
+// ── Self-Ping Logic (To prevent Render sleep) ─────────
+const axios = require('axios');
+const SELF_URL = 'https://rizqara-extraction-backend.onrender.com';
+
+setInterval(async () => {
+  try {
+    // Ping the root or health endpoint
+    await axios.get(`${SELF_URL}/api/health`);
+    console.log(`[Rizqara] Self-ping successful at ${new Date().toLocaleTimeString()}`);
+  } catch (err) {
+    console.warn('[Rizqara] Self-ping failed:', err.message);
+  }
+}, 10 * 60 * 1000); // Ping every 10 minutes (Render sleep starts at 15m)
+
 // Routes & Middleware
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
@@ -60,6 +74,10 @@ const limiter = rateLimit({
 // ── Public Routes ──────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({ status: 'ok', name: 'Rizqara Extraction API', version: '1.1.0' });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'alive', timestamp: new Date() });
 });
 
 app.use('/api/auth', authRoutes);
