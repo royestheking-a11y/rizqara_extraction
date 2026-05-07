@@ -58,7 +58,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
   }
 
-  if (msg.action === 'EXTRACTION_COMPLETE') {
+  if (msg.action === 'COMPLETE') {
     // Save the entire queue as savedLeads batch
     chrome.storage.local.get(['extractionQueue', 'savedLeads'], (res) => {
       const queue = res.extractionQueue || [];
@@ -70,6 +70,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         savedLeads: [...existing, ...newLeads],
         extractionQueue: []
       });
+      console.log(`[Rizqara] Saved ${newLeads.length} new leads to local storage`);
     });
   }
 

@@ -73,7 +73,18 @@ async function fetchUserProfile(token) {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) {
-      user = await res.json();
+      const serverUser = await res.json();
+      
+      // CRITICAL: Never let server data overwrite a HIGHER local count.
+      // During extraction, local user.total_usage is incremented in real-time.
+      // The server may not have finished saving all leads yet.
+      if (user && user._id === serverUser._id) {
+        // Keep whichever count is higher
+        serverUser.total_usage = Math.max(serverUser.total_usage || 0, user.total_usage || 0);
+        serverUser.usage_today = Math.max(serverUser.usage_today || 0, user.usage_today || 0);
+      }
+      
+      user = serverUser;
       updateUserUI();
       showAuthOverlay(false);
     } else {
@@ -469,22 +480,47 @@ function listenToBackground() {
       
       // Real-time usage update for the UI
       if (user) {
-        if (user.plan === 'free') user.total_usage++;
-        else user.usage_today++;
+        if (user.plan === 'free') user.total_usage = (user.total_usage || 0) + 1;
+        else user.usage_today = (user.usage_today || 0) + 1;
         updateUserUI();
       }
       
       updateUI(msg.current, msg.total);
     } else if (msg.action === 'COMPLETE') {
-      stopExtraction();
-      showToast('🎉 Extraction Complete!', 'success');
+      // Save the count BEFORE calling stopExtraction
+      const finalCount = extractedLeads.length;
+      const savedUsage = user ? { total: user.total_usage, today: user.usage_today } : null;
       
-      // Give the backend a moment to finish saving all leads before refreshing profile
+      stopExtraction();
+      showToast(`🎉 Extraction Complete! ${finalCount} leads collected.`, 'success');
+      
+      // Persist leads to chrome.storage so they survive popup close
+      chrome.storage.local.get(['savedLeads'], (res) => {
+        const existing = res.savedLeads || [];
+        const names = new Set(existing.map(l => l.name));
+        const newLeads = extractedLeads.filter(l => l.name && !names.has(l.name));
+        chrome.storage.local.set({
+          savedLeads: [...existing, ...newLeads],
+          extractionQueue: []
+        });
+      });
+      
+      // Wait for backend to finish all saves, then sync profile
+      // But NEVER let the sync reduce our counts
       setTimeout(() => {
         chrome.storage.local.get(['token'], (res) => {
-          if (res.token) fetchUserProfile(res.token);
+          if (res.token) {
+            fetchUserProfile(res.token).then(() => {
+              // Double-check: restore counts if server returned less
+              if (user && savedUsage) {
+                user.total_usage = Math.max(user.total_usage || 0, savedUsage.total || 0);
+                user.usage_today = Math.max(user.usage_today || 0, savedUsage.today || 0);
+                updateUserUI();
+              }
+            });
+          }
         });
-      }, 2000);
+      }, 3000);
     }
   });
 }
