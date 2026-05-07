@@ -81,14 +81,22 @@ async function fetchUserProfile(token) {
     if (res.ok) {
       const serverUser = await res.json();
       
-      // CRITICAL: Never let server data overwrite a HIGHER local count.
-      // During extraction, local user.total_usage is incremented in real-time.
-      // The server may not have finished saving all leads yet.
-      if (user && user._id === serverUser._id) {
-        // Keep whichever count is higher
-        serverUser.total_usage = Math.max(serverUser.total_usage || 0, user.total_usage || 0);
-        serverUser.usage_today = Math.max(serverUser.usage_today || 0, user.usage_today || 0);
-      }
+      // Also check the latest server-confirmed counts from background.js
+      // These are written by background.js after each successful lead save
+      const stored = await new Promise(resolve => {
+        chrome.storage.local.get(['serverUsage'], (r) => resolve(r.serverUsage || null));
+      });
+      
+      // Use the HIGHEST value from: local user, server profile, and background-confirmed counts
+      const localTotal = user?.total_usage || 0;
+      const localToday = user?.usage_today || 0;
+      const storedTotal = stored?.total || 0;
+      const storedToday = stored?.today || 0;
+      const serverTotal = serverUser.total_usage || 0;
+      const serverToday = serverUser.usage_today || 0;
+      
+      serverUser.total_usage = Math.max(localTotal, storedTotal, serverTotal);
+      serverUser.usage_today = Math.max(localToday, storedToday, serverToday);
       
       user = serverUser;
       updateUserUI();
@@ -541,9 +549,7 @@ function listenToBackground() {
       
       updateUI(msg.current, msg.total);
     } else if (msg.action === 'COMPLETE') {
-      // Save the count BEFORE calling stopExtraction
       const finalCount = extractedLeads.length;
-      const savedUsage = user ? { total: user.total_usage, today: user.usage_today } : null;
       
       stopExtraction();
       showToast(`🎉 Extraction Complete! ${finalCount} leads collected.`, 'success');
@@ -559,20 +565,17 @@ function listenToBackground() {
         });
       });
       
-      // Wait for backend to finish all saves, then sync profile
-      // But NEVER let the sync reduce our counts
+      // Wait for all background saves to complete, then sync from server
       setTimeout(() => {
-        chrome.storage.local.get(['token'], (res) => {
-          if (res.token) {
-            fetchUserProfile(res.token).then(() => {
-              // Double-check: restore counts if server returned less
-              if (user && savedUsage) {
-                user.total_usage = Math.max(user.total_usage || 0, savedUsage.total || 0);
-                user.usage_today = Math.max(user.usage_today || 0, savedUsage.today || 0);
-                updateUserUI();
-              }
-            });
+        chrome.storage.local.get(['token', 'serverUsage'], (res) => {
+          // First apply the background-confirmed counts immediately
+          if (res.serverUsage && user) {
+            user.total_usage = Math.max(user.total_usage || 0, res.serverUsage.total || 0);
+            user.usage_today = Math.max(user.usage_today || 0, res.serverUsage.today || 0);
+            updateUserUI();
           }
+          // Then also fetch fresh profile from server
+          if (res.token) fetchUserProfile(res.token);
         });
       }, 3000);
     }

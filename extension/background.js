@@ -22,13 +22,13 @@ chrome.runtime.onInstalled.addListener(() => {
 // ── Forward messages: content script → popup ──────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'LEAD_FOUND') {
-    // 1. Persist lead locally
+    // 1. Persist lead locally in browser storage
     chrome.storage.local.get(['extractionQueue', 'token'], (res) => {
       const queue = res.extractionQueue || [];
       queue.push(msg.data);
       chrome.storage.local.set({ extractionQueue: queue });
 
-      // 2. Report usage & SAVE lead data to backend
+      // 2. Save lead to backend AND atomically increment usage
       if (res.token) {
         console.log('[Rizqara] Saving lead to database...');
         fetch('https://rizqara-extraction-backend.onrender.com/api/leads', {
@@ -37,20 +37,37 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${res.token}`
           },
-          body: JSON.stringify(msg.data) // Send full lead data
+          body: JSON.stringify(msg.data)
         })
-        .then(r => r.json())
-        .then(data => {
-          if (data.error && data.error.includes('limit')) {
-            console.error('[Rizqara] Limit reached:', data.message);
-            // Stop extraction across all tabs if limit is reached
-            chrome.tabs.query({}, (tabs) => {
-              tabs.forEach(tab => {
-                chrome.tabs.sendMessage(tab.id, { action: 'STOP' }).catch(() => {});
+        .then(r => {
+          if (r.status === 403) {
+            // Limit reached — stop all extraction
+            return r.json().then(data => {
+              console.error('[Rizqara] LIMIT REACHED:', data.message);
+              chrome.tabs.query({}, (tabs) => {
+                tabs.forEach(tab => {
+                  chrome.tabs.sendMessage(tab.id, { action: 'STOP' }).catch(() => {});
+                });
               });
+              return { limitReached: true, ...data };
             });
-          } else {
-            console.log('[Rizqara] Lead saved successfully');
+          }
+          return r.json();
+        })
+        .then(data => {
+          if (data && !data.limitReached && data.usage) {
+            // Forward the REAL database counts to the popup
+            console.log(`[Rizqara] ✅ Lead saved. DB counts: ${data.usage.total}/${data.usage.plan === 'free' ? 20 : data.usage.limit}`);
+            
+            // Store the latest server-confirmed counts
+            chrome.storage.local.set({ 
+              serverUsage: {
+                total: data.usage.total,
+                today: data.usage.today,
+                limit: data.usage.limit,
+                plan: data.usage.plan
+              }
+            });
           }
         })
         .catch(err => console.error('[Rizqara] Failed to save lead:', err));
