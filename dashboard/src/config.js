@@ -1,3 +1,3 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3005';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://rizqara-extraction-backend.onrender.com';
 
 export default API_BASE_URL;

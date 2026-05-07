@@ -69,7 +69,7 @@ function initAuth() {
 
 async function fetchUserProfile(token) {
   try {
-    const res = await fetch('http://127.0.0.1:3005/api/user/profile', {
+    const res = await fetch('https://rizqara-extraction-backend.onrender.com/api/user/profile', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) {
@@ -90,7 +90,7 @@ async function handleLogin() {
   if (!email || !password) return showToast('Enter email and password');
 
   try {
-    const res = await fetch('http://127.0.0.1:3005/api/auth/login', {
+    const res = await fetch('https://rizqara-extraction-backend.onrender.com/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -117,7 +117,7 @@ async function handleRegister() {
   if (!name || !email || !password) return showToast('Fill all fields');
 
   try {
-    const res = await fetch('http://127.0.0.1:3005/api/auth/register', {
+    const res = await fetch('https://rizqara-extraction-backend.onrender.com/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password })
@@ -159,7 +159,7 @@ function updateUserUI() {
 function setupAuth() {
   if ($('btnGetPro')) {
     $('btnGetPro').onclick = async () => {
-      const url = $('dashboardUrl').value || 'http://127.0.0.1:5173';
+      const url = $('dashboardUrl').value || 'https://rizqaraextraction.vercel.app';
       chrome.tabs.create({ url: `${url.replace(/\/$/, '')}/subscriptions` });
     };
   }

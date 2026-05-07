@@ -8,7 +8,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(['settings', 'savedLeads'], (res) => {
     if (!res.settings) {
       chrome.storage.local.set({
-        settings: { apiUrl: 'http://127.0.0.1:3005', speed: 'medium', email: true, social: true, antiblock: true }
+        settings: { apiUrl: 'https://rizqara-extraction-backend.onrender.com', speed: 'medium', email: true, social: true, antiblock: true }
       });
     }
     if (!res.savedLeads) {

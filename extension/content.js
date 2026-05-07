@@ -52,7 +52,7 @@
 
   // ── Main Extraction Loop ────────────────────────────
   async function startExtraction(limit, mode, settings) {
-    const API = (settings?.apiUrl || 'http://127.0.0.1:3005').replace(/\/$/, '');
+    const API = (settings?.apiUrl || 'https://rizqara-extraction-backend.onrender.com').replace(/\/$/, '');
     const extracted = [];
     const seen = new Set();
     let scrollAttempts = 0;
