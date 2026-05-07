@@ -41,8 +41,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         })
         .then(r => r.json())
         .then(data => {
-          if (data.error) console.error('[Rizqara] Limit reached:', data.message);
-          else console.log('[Rizqara] Lead saved successfully');
+          if (data.error && data.error.includes('limit')) {
+            console.error('[Rizqara] Limit reached:', data.message);
+            // Stop extraction across all tabs if limit is reached
+            chrome.tabs.query({}, (tabs) => {
+              tabs.forEach(tab => {
+                chrome.tabs.sendMessage(tab.id, { action: 'STOP' }).catch(() => {});
+              });
+            });
+          } else {
+            console.log('[Rizqara] Lead saved successfully');
+          }
         })
         .catch(err => console.error('[Rizqara] Failed to save lead:', err));
       }

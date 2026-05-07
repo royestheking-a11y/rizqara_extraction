@@ -60,7 +60,7 @@ router.post('/transactions/:id/status', async (req, res) => {
 
     // If approved, update user plan and limit
     if (status === 'approved') {
-      const limits = { standard: 100, premium: 300 };
+      const limits = { pro: 100, business: 300 };
       await User.findByIdAndUpdate(tx.userId, {
         plan: tx.planRequested,
         daily_limit: limits[tx.planRequested] || 20
