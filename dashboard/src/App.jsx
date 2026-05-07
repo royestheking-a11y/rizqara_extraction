@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Subscriptions from './pages/Subscriptions';
+import Leads from './pages/Leads';
 import AdminOverview from './pages/admin/AdminOverview';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminPayments from './pages/admin/AdminPayments';
@@ -58,6 +59,7 @@ function App() {
               <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to="/" />} />
               <Route path="/register" element={!user ? <Register setUser={setUser} /> : <Navigate to="/" />} />
               <Route path="/" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
+              <Route path="/leads" element={user ? <Leads user={user} /> : <Navigate to="/login" />} />
               <Route path="/subscriptions" element={user ? <Subscriptions user={user} /> : <Navigate to="/login" />} />
               
               {/* Admin Routes */}

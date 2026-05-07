@@ -479,10 +479,12 @@ function listenToBackground() {
       stopExtraction();
       showToast('🎉 Extraction Complete!', 'success');
       
-      // Final profile sync to ensure backend and frontend are aligned
-      chrome.storage.local.get(['token'], (res) => {
-        if (res.token) fetchUserProfile(res.token);
-      });
+      // Give the backend a moment to finish saving all leads before refreshing profile
+      setTimeout(() => {
+        chrome.storage.local.get(['token'], (res) => {
+          if (res.token) fetchUserProfile(res.token);
+        });
+      }, 2000);
     }
   });
 }

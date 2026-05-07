@@ -28,6 +28,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const paymentRoutes = require('./routes/payment');
 const adminRoutes = require('./routes/admin');
+const leadRoutes = require('./routes/leads');
 const auth = require('./middleware/auth');
 const checkLimit = require('./middleware/limit');
 
@@ -67,6 +68,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/leads', leadRoutes);
 
 // ── Enrich Endpoint (Protected + Limited) ──────────────
 app.post('/enrich', [auth, checkLimit, limiter], async (req, res) => {
@@ -80,11 +82,6 @@ app.post('/enrich', [auth, checkLimit, limiter], async (req, res) => {
     if (settings.ai && settings.openaiKey && result) {
       result.aiInsight = await generateAIInsight(result, settings.openaiKey);
     }
-
-    // Increment usage
-    req.user.usage_today += 1;
-    req.user.total_usage += 1;
-    await req.user.save();
 
     res.json(result);
   } catch (err) {

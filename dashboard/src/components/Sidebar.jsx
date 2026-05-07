@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, LogOut, Zap, Users, ShieldCheck, PieChart } from 'lucide-react';
+import { LayoutDashboard, CreditCard, LogOut, Zap, Users, ShieldCheck, PieChart, Database } from 'lucide-react';
 
 const Sidebar = ({ user, setUser }) => {
   const navigate = useNavigate();
@@ -27,6 +27,10 @@ const Sidebar = ({ user, setUser }) => {
         <NavLink to="/" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
           <LayoutDashboard size={20} />
           <span>Dashboard</span>
+        </NavLink>
+        <NavLink to="/leads" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <Database size={20} />
+          <span>My Leads</span>
         </NavLink>
         <NavLink to="/subscriptions" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
           <CreditCard size={20} />

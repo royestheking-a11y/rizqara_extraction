@@ -28,20 +28,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       queue.push(msg.data);
       chrome.storage.local.set({ extractionQueue: queue });
 
-      // 2. Report usage to backend immediately
+      // 2. Report usage & SAVE lead data to backend
       if (res.token) {
-        console.log('[Rizqara] Reporting 1 lead to backend...');
-        fetch('https://rizqara-extraction-backend.onrender.com/api/user/usage', {
+        console.log('[Rizqara] Saving lead to database...');
+        fetch('https://rizqara-extraction-backend.onrender.com/api/leads', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${res.token}`
           },
-          body: JSON.stringify({ count: 1 })
+          body: JSON.stringify(msg.data) // Send full lead data
         })
         .then(r => r.json())
-        .then(data => console.log('[Rizqara] Usage updated:', data))
-        .catch(err => console.error('[Rizqara] Usage report failed:', err));
+        .then(data => {
+          if (data.error) console.error('[Rizqara] Limit reached:', data.message);
+          else console.log('[Rizqara] Lead saved successfully');
+        })
+        .catch(err => console.error('[Rizqara] Failed to save lead:', err));
       }
     });
   }
