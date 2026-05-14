@@ -44,11 +44,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             // Limit reached — stop all extraction
             return r.json().then(data => {
               console.error('[Rizqara] LIMIT REACHED:', data.message);
-              chrome.tabs.query({}, (tabs) => {
-                tabs.forEach(tab => {
-                  chrome.tabs.sendMessage(tab.id, { action: 'STOP' }).catch(() => {});
-                });
-              });
+              // Signal all content scripts to stop via storage change
+              chrome.storage.local.set({ stopExtractionSignal: Date.now() });
               return { limitReached: true, ...data };
             });
           }

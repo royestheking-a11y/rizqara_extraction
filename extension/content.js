@@ -37,17 +37,27 @@
         .finally(() => { showBar(false); extracting = false; });
       sendResponse({ ok: true });
 
-    } else if (msg.action === 'PAUSE_EXTRACTION') {
+    } else if (msg.action === 'PAUSE') {
       paused = true; sendResponse({ ok: true });
 
-    } else if (msg.action === 'RESUME_EXTRACTION') {
+    } else if (msg.action === 'RESUME') {
       paused = false; sendResponse({ ok: true });
 
-    } else if (msg.action === 'STOP_EXTRACTION') {
+    } else if (msg.action === 'STOP') {
       aborted = true; extracting = false; showBar(false);
       sendResponse({ ok: true });
     }
     return true;
+  });
+
+  // ── Listen for background STOP signal (via storage) ──
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.stopExtractionSignal) {
+      console.log('[Rizqara] Remote STOP signal received.');
+      aborted = true;
+      extracting = false;
+      showBar(false);
+    }
   });
 
   // ── Main Extraction Loop ────────────────────────────
